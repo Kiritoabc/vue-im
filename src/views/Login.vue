@@ -1,21 +1,17 @@
 <template>
   <div class="auth-container">
+    <!-- 添加系统标题 -->
+    <div class="system-title">
+      <h1>原神交流 IM 系统</h1>
+      <p>与提瓦特大陆的冒险者们在线交流</p>
+    </div>
     <div class="auth-box" :class="{ 'slide-signup': isSignUp }">
       <!-- 左侧登录面板 -->
       <div class="form-container sign-in" v-if="!isSignUp">
         <form>
           <h2>登录</h2>
-          <el-input 
-            v-model="loginForm.username" 
-            placeholder="用户名"
-            prefix-icon="User"
-          />
-          <el-input 
-            v-model="loginForm.password" 
-            type="password" 
-            placeholder="密码"
-            prefix-icon="Lock"
-          />
+          <el-input v-model="loginForm.username" placeholder="用户名" prefix-icon="User" />
+          <el-input v-model="loginForm.password" type="password" placeholder="密码" prefix-icon="Lock" />
           <el-button type="primary" @click="handleLogin">登录</el-button>
         </form>
       </div>
@@ -24,22 +20,9 @@
       <div class="form-container sign-up">
         <form>
           <h2>注册</h2>
-          <el-input 
-            v-model="registerForm.username" 
-            placeholder="用户名"
-            prefix-icon="User"
-          />
-          <el-input 
-            v-model="registerForm.email" 
-            placeholder="邮箱"
-            prefix-icon="Message"
-          />
-          <el-input 
-            v-model="registerForm.password" 
-            type="password" 
-            placeholder="密码"
-            prefix-icon="Lock"
-          />
+          <el-input v-model="registerForm.username" placeholder="用户名" prefix-icon="User" />
+          <el-input v-model="registerForm.email" placeholder="邮箱" prefix-icon="Message" />
+          <el-input v-model="registerForm.password" type="password" placeholder="密码" prefix-icon="Lock" />
           <el-button type="primary" @click="handleRegister">注册</el-button>
         </form>
       </div>
@@ -66,7 +49,9 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { User, Lock, Message } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const isSignUp = ref(false)
 
 const loginForm = reactive({
@@ -82,6 +67,7 @@ const registerForm = reactive({
 
 const handleLogin = () => {
   // 处理登录逻辑
+  router.push('/chat')
 }
 
 const handleRegister = () => {
@@ -103,7 +89,7 @@ const handleRegister = () => {
 .auth-box {
   background: rgba(255, 255, 255, 0.9);
   border-radius: 10px;
-  box-shadow: 0 14px 28px rgba(0,0,0,0.25);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25);
   position: relative;
   overflow: hidden;
   width: 768px;
@@ -226,7 +212,8 @@ form {
 .ghost {
   background: transparent;
   height: 40px;
-  border-radius: 25px; /* 增加圆角半径 */
+  border-radius: 25px;
+  /* 增加圆角半径 */
   border: 1px solid #FFF;
   color: #FFF;
 }
@@ -238,6 +225,7 @@ h2 {
 p {
   margin: 20px 0;
 }
+
 .login-container {
   height: 100vh;
   display: flex;
@@ -254,7 +242,8 @@ p {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   border: none;
-  border-radius: 25px; /* 增加圆角半径 */
+  border-radius: 25px;
+  /* 增加圆角半径 */
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
@@ -268,7 +257,8 @@ p {
   background: #0288d1;
   border: none;
   height: 40px;
-  border-radius: 25px; /* 增加圆角半径 */
+  border-radius: 25px;
+  /* 增加圆角半径 */
   font-size: 16px;
   transition: all 0.3s;
 }
@@ -280,7 +270,8 @@ p {
 }
 
 .el-input :deep(.el-input__wrapper) {
-  border-radius: 25px; /* 增加圆角半径 */
+  border-radius: 25px;
+  /* 增加圆角半径 */
   padding: 0 15px;
   height: 40px;
   box-shadow: none;
@@ -294,6 +285,69 @@ p {
 .form-footer {
   text-align: center;
   margin-top: 20px;
+}
+
+/* 系统标题样式 */
+.system-title {
+  position: absolute; /* 添加绝对定位 */
+  top: 10%; /* 距离顶部的距离 */
+  left: 50%; /* 水平居中 */
+  transform: translateX(-50%); /* 水平居中偏移 */
+  text-align: center;
+  color: #fff;
+  margin-bottom: 40px;
+  z-index: 1000; /* 确保标题在最上层 */
+}
+
+.system-title h1 {
+  font-size: 48px; /* 增大标题字体 */
+  margin-bottom: 15px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  font-weight: bold;
+  letter-spacing: 2px; /* 添加字间距 */
+  color: #FFD700; /* 使用金色 */
+}
+
+.system-title p {
+  font-size: 18px;
+  opacity: 0.9;
+  letter-spacing: 1px;
+  color: #FFF;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* 登录注册框内的文字样式 */
+form h2 {
+  font-size: 24px;
+  color: #333;
+  font-weight: bold;
+  margin-bottom: 25px;
+}
+
+.overlay-panel h2 {
+  font-size: 28px;
+  margin-bottom: 20px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.overlay-panel p {
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 25px;
+}
+
+/* 输入框文字样式 */
+.el-input :deep(.el-input__inner) {
+  font-size: 15px;
+  color: #333;
+}
+
+/* 按钮文字样式 */
+.el-button {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 1px;
 }
 
 

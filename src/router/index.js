@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
@@ -12,34 +12,32 @@ const router = createRouter({
       name: 'Login',
       component: () => import('../views/Login.vue')
     },
-    // {
-    //   path: '/loginRegister',
-    //   name: 'LoginRegister',
-    //   component: () => import('../views/LoginRegister.vue')
-    // },
-    // {
-    //   path: '/register',
-    //   name: 'Register',
-    //   component: () => import('../views/Register.vue')
-    // },
-    // {
-    //   path: '/chat',
-    //   name: 'Chat',
-    //   component: () => import('../views/Chat.vue'),
-    //   meta: { requiresAuth: true },
-    //   children: [
-    //     {
-    //       path: 'private/:userId',
-    //       name: 'PrivateChat',
-    //       component: () => import('../views/chat/PrivateChat.vue')
-    //     },
-    //     {
-    //       path: 'group/:groupId',
-    //       name: 'GroupChat',
-    //       component: () => import('../views/chat/GroupChat.vue')
-    //     }
-    //   ]
-    // }
+    {
+      path: '/',
+      component: () => import('../views/Layout.vue'),
+      children: [
+        {
+          path: 'chat',
+          name: 'chat',
+          component: () => import('../views/ChatView.vue')
+        },
+        {
+          path: 'contact',
+          name: 'contact',
+          component: () => import('../views/ContactView.vue')
+        }
+        // {
+        //   path: 'favorites',
+        //   name: 'favorites',
+        //   component: () => import('../views/FavoritesView.vue')
+        // },
+        // {
+        //   path: 'files',
+        //   name: 'files',
+        //   component: () => import('../views/FilesView.vue')
+        // }
+      ]
+    }
   ]
 })
 
@@ -53,4 +51,4 @@ router.beforeEach((to, from, next) => {
   }
 })
 
-export default router 
+export default router
