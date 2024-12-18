@@ -33,7 +33,7 @@
           <div class="overlay-panel overlay-left">
             <h2>欢迎回来！</h2>
             <p>请登录您的账号以继续访问</p>
-            <el-button class="ghost" @click="isSignUp = false">登录</el-button>
+            <el-button class="ghost" @click="isSignUp = false">登录 </el-button>
           </div>
           <div class="overlay-panel overlay-right">
             <h2>您好！</h2>
@@ -289,23 +289,31 @@ p {
 
 /* 系统标题样式 */
 .system-title {
-  position: absolute; /* 添加绝对定位 */
-  top: 10%; /* 距离顶部的距离 */
-  left: 50%; /* 水平居中 */
-  transform: translateX(-50%); /* 水平居中偏移 */
+  position: absolute;
+  /* 添加绝对定位 */
+  top: 10%;
+  /* 距离顶部的距离 */
+  left: 50%;
+  /* 水平居中 */
+  transform: translateX(-50%);
+  /* 水平居中偏移 */
   text-align: center;
   color: #fff;
   margin-bottom: 40px;
-  z-index: 1000; /* 确保标题在最上层 */
+  z-index: 1000;
+  /* 确保标题在最上层 */
 }
 
 .system-title h1 {
-  font-size: 48px; /* 增大标题字体 */
+  font-size: 48px;
+  /* 增大标题字体 */
   margin-bottom: 15px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
   font-weight: bold;
-  letter-spacing: 2px; /* 添加字间距 */
-  color: #FFD700; /* 使用金色 */
+  letter-spacing: 2px;
+  /* 添加字间距 */
+  color: #FFD700;
+  /* 使用金色 */
 }
 
 .system-title p {
@@ -349,7 +357,4 @@ form h2 {
   font-weight: 500;
   letter-spacing: 1px;
 }
-
-
-
 </style>

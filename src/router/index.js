@@ -19,23 +19,30 @@ const router = createRouter({
         {
           path: 'chat',
           name: 'chat',
-          component: () => import('../views/ChatView.vue')
+          component: () => import('../views/ChatView.vue'),
+          children: [
+            {
+              path: 'group/:id',  // 添加群聊动态路由
+              name: 'groupChat',
+              component: () => import('../views/ChatView.vue')
+            },
+            {
+              path: 'private/:id',  // 添加私聊动态路由 
+              name: 'privateChat', 
+              component: () => import('../views/ChatView.vue')
+            }
+          ]
         },
         {
           path: 'contact',
           name: 'contact',
           component: () => import('../views/ContactView.vue')
-        }
-        // {
-        //   path: 'favorites',
-        //   name: 'favorites',
-        //   component: () => import('../views/FavoritesView.vue')
-        // },
-        // {
-        //   path: 'files',
-        //   name: 'files',
-        //   component: () => import('../views/FilesView.vue')
-        // }
+        },
+        {
+          path: 'ai',
+          name: 'ai',
+          component: () => import('../views/AIChatView.vue')
+        },
       ]
     }
   ]
