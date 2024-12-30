@@ -42,6 +42,7 @@
             </div>
           </div>
 
+
           <!-- 操作按钮 -->
           <div class="action-buttons">
             <el-button type="primary" @click="editUserInfo">编辑资料</el-button>
@@ -61,6 +62,7 @@
         </div>
       </div>
 
+
       <!-- 底部菜单 -->
       <div class="bottom-menu">
         <el-dropdown trigger="click" @command="handleCommand">
@@ -77,9 +79,10 @@
         </el-dropdown>
       </div>
     </div>
-
     <!-- 内容区域 -->
     <div class="main-content">
+      <!-- 在 Layout.vue 的 template 中添加 -->
+      <UserInfoEdit v-model:visible="showEditDialog" :user-info="userInfo" @save="handleSaveUserInfo" />
       <router-view></router-view>
     </div>
   </div>
@@ -88,15 +91,18 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import UserInfoEdit from '../components/UserInfoEdit.vue'
 
 const router = useRouter()
 const route = useRoute()
 // 在原有的 script 中添加
 const showUserInfo = ref(false)
 
+// 添加编辑弹窗的状态
+const showEditDialog = ref(false)
 
 // 模拟用户信息
-const userInfo = {
+const userInfo = ref({
   nickname: '菠萝🍍',
   avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s',
   account: '2493381254',
@@ -105,7 +111,7 @@ const userInfo = {
   birthday: '2000-01-01',
   location: '中国',
   signature: '这个人很懒，什么都没留下...'
-}
+})
 
 // 菜单项配置
 const menuItems = [
@@ -114,9 +120,23 @@ const menuItems = [
   { label: 'AI', path: '/ai' },
 ]
 
+
+// 处理保存用户信息
+const handleSaveUserInfo = (updatedInfo) => {
+  // 这里处理保存逻辑
+  console.log('更新的用户信息：', updatedInfo)
+  // 更新本地用户信息
+  Object.assign(userInfo, updatedInfo)
+  ElMessage.success('保存成功')
+}
+
+
 // 编辑用户信息
 const editUserInfo = () => {
   // 实现编辑资料的逻辑
+  console.log('编辑资料')
+  showEditDialog = true
+  showUserInfo = false
 }
 
 // 当前路径

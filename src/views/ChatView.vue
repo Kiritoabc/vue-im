@@ -90,7 +90,14 @@
 
         <!-- 操作按钮 -->
         <div class="action-buttons">
-          <el-button type="primary" @click="sendPrivateMessage(selectedSender.senderId)">发送消息</el-button>
+          <el-button 
+            v-if="!isFriend(selectedSender.id)" 
+            type="primary" 
+            @click="addFriend(selectedSender.id)">添加好友</el-button>
+          <el-button 
+            v-else 
+            type="primary" 
+            @click="sendPrivateMessage(selectedSender.senderId)">发送消息</el-button>
           <el-button @click="showSenderDialog = false">关闭</el-button>
         </div>
       </div>
@@ -160,7 +167,6 @@
   </div>
 </template>
 <script setup>
-import { fa } from 'element-plus/es/locales.mjs';
 import { ref, watch, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -176,6 +182,23 @@ const selectedMember = ref(null)
 // 展示消息发送者的信息
 const showSenderDialog = ref(false)
 const selectedSender = ref(null)
+
+// 模拟好友数据
+const friends = ref([
+  { id: 1, name: '小明', avatar: 'https://example.com/avatar1.jpg', status: '在线' },
+  { id: 2, name: '小红', avatar: 'https://example.com/avatar2.jpg', status: '离线' },
+])
+
+// 判断是否是好友
+const isFriend = (id) => {
+  return friends.value.some(friend => friend.id === id)
+}
+
+// 添加好友
+const addFriend = (id) => {
+  // 处理添加好友的逻辑
+  console.log(`添加好友: ${id}`)
+}
 
 // 监听路由变化
 watch(

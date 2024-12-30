@@ -8,7 +8,7 @@
     <div class="auth-box" :class="{ 'slide-signup': isSignUp }">
       <!-- 左侧登录面板 -->
       <div class="form-container sign-in" v-if="!isSignUp">
-        <form>
+        <form @submit.prevent="handleLogin">
           <h2>登录</h2>
           <el-input v-model="loginForm.username" placeholder="用户名" prefix-icon="User" />
           <el-input v-model="loginForm.password" type="password" placeholder="密码" prefix-icon="Lock" />
@@ -18,10 +18,10 @@
 
       <!-- 右侧注册面板 -->
       <div class="form-container sign-up">
-        <form>
+        <form @submit.prevent="handleRegister">
           <h2>注册</h2>
           <el-input v-model="registerForm.username" placeholder="用户名" prefix-icon="User" />
-          <el-input v-model="registerForm.email" placeholder="邮箱" prefix-icon="Message" />
+          <el-input v-model="registerForm.phone_number" placeholder="手机号" prefix-icon="Message" />
           <el-input v-model="registerForm.password" type="password" placeholder="密码" prefix-icon="Lock" />
           <el-button type="primary" @click="handleRegister">注册</el-button>
         </form>
@@ -48,10 +48,13 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { User, Lock, Message } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
+import { useStore } from 'vuex'
+import { ElNotification } from 'element-plus'
 
 const router = useRouter()
+const store = useStore()
 const isSignUp = ref(false)
 
 const loginForm = reactive({
@@ -61,17 +64,77 @@ const loginForm = reactive({
 
 const registerForm = reactive({
   username: '',
-  email: '',
+  phone_number: '',
   password: ''
 })
 
-const handleLogin = () => {
-  // 处理登录逻辑
-  router.push('/chat')
+const handleLogin = async () => {
+  try {
+    const response = await axios.post('http://localhost:8080/im-server/login', {
+      phone_number: loginForm.username,
+      password: loginForm.password
+    })
+    // 获取用户信息
+    const userId = response.data.data.user_id
+    const userInfoResponse = await axios.get(`http://localhost:8080/im-server/user/${userId}`)
+    // 使用vuex 保存用户信息
+    await store.dispatch('updateUserInfo', userInfoResponse.data.data)
+
+    // 显示登录成功的通知
+    ElNotification({
+      title: '登录成功',
+      message: '欢迎回来！',
+      type: 'success',
+      // position: 'top-center',
+      duration: 3000
+    })
+
+    // 登录成功后，跳转到聊天页面
+    await router.push('/chat')
+  } catch (error) {
+    console.error('登录失败:', error.response.data)
+    // 显示登录失败的通知
+    ElNotification({
+      title: '登录失败',
+      message: error.response.data.message || '请检查您的用户名和密码',
+      type: 'error',
+      // position: 'top-center',
+      duration: 3000
+    })
+  }
 }
 
-const handleRegister = () => {
-  // 处理注册逻辑
+const handleRegister = async () => {
+  try {
+    const response = await axios.post('http://localhost:8080/im-server/register', {
+      phone_number: registerForm.phone_number,
+      username: registerForm.username,
+      password_hash: registerForm.password
+    })
+    console.log('注册成功:', response.data)
+
+    // 显示注册成功的通知
+    ElNotification({
+      title: '注册成功',
+      message: '您已成功注册，请登录！',
+      type: 'success',
+      // position: 'top-center',
+      duration: 3000
+    })
+
+    // 注册成功后，跳转到登录页面或直接登录
+    isSignUp.value = false
+  } catch (error) {
+    console.error('注册失败:', error.response.data)
+    // 显示注册失败的通知
+    ElNotification({
+      title: '注册失败',
+      message: error.response.data.message || '请检查您的输入',
+      type: 'error',
+      position: 'top-center',
+      duration: 3000
+    })
+  }
 }
 </script>
 
