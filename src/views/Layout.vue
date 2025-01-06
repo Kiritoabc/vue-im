@@ -4,20 +4,20 @@
     <div class="sidebar">
       <!-- 用户信息 -->
       <div class="user-profile" @click="showUserInfo = true">
-        <el-avatar :src="userInfo.avatar" />
+        <el-avatar :src="userInfo.avatar_url" />
       </div>
       <!-- 添加用户信息弹窗 -->
-      <el-dialog v-model="showUserInfo" title="个人信息" width="400px" :show-close="true" :close-on-click-modal="true">
+      <el-dialog v-model="showUserInfo" title="我的信息" width="400px" :show-close="true" :close-on-click-modal="true">
         <div class="user-info-content">
           <!-- 头像和基本信息 -->
           <div class="user-info-header">
-            <el-avatar :size="80" :src="userInfo.avatar" />
+            <el-avatar :size="80" :src="userInfo.avatar_url" />
             <div class="basic-info">
-              <h2>{{ userInfo.nickname }}</h2>
-              <div class="account">账号：{{ userInfo.account }}</div>
+              <h2>{{ userInfo.username }}</h2>
+              <div class="account">账号：{{ userInfo.phone_number }}</div>
               <div class="status">
                 <span class="status-dot"></span>
-                {{ userInfo.status }}
+                {{ userInfo.gender }}
               </div>
             </div>
           </div>
@@ -25,23 +25,26 @@
           <!-- 详细信息 -->
           <div class="info-section">
             <div class="info-item">
-              <span class="label">性别</span>
+              <span class="label">性别:</span>
               <span>{{ userInfo.gender }}</span>
             </div>
             <div class="info-item">
-              <span class="label">生日</span>
-              <span>{{ userInfo.birthday }}</span>
+              <span class="label">生日:</span>
+              <span>{{ userInfo.data_of_birth || '2000-01-01' }}</span>
             </div>
             <div class="info-item">
-              <span class="label">所在地</span>
-              <span>{{ userInfo.location }}</span>
+              <span class="label">所在地:</span>
+              <span>{{ userInfo.city || '北京' }} * {{ userInfo.country || '中国' }}</span>
             </div>
             <div class="info-item">
-              <span class="label">个性签名</span>
-              <span>{{ userInfo.signature }}</span>
+              <span class="label">个性签名:</span>
+              <span>{{ userInfo.bio || '人生就像旷野' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">邮箱:</span>
+              <span>{{ userInfo.email }}</span>
             </div>
           </div>
-
 
           <!-- 操作按钮 -->
           <div class="action-buttons">
@@ -62,7 +65,6 @@
         </div>
       </div>
 
-
       <!-- 底部菜单 -->
       <div class="bottom-menu">
         <el-dropdown trigger="click" @command="handleCommand">
@@ -81,7 +83,6 @@
     </div>
     <!-- 内容区域 -->
     <div class="main-content">
-      <!-- 在 Layout.vue 的 template 中添加 -->
       <UserInfoEdit v-model:visible="showEditDialog" :user-info="userInfo" @save="handleSaveUserInfo" />
       <router-view></router-view>
     </div>
@@ -91,75 +92,114 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useStore } from 'vuex'
+import axios from 'axios'
 import UserInfoEdit from '../components/UserInfoEdit.vue'
+import { getToken } from '../utils/utils.js'
+import { ElNotification } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
-// 在原有的 script 中添加
-const showUserInfo = ref(false)
+const store = useStore()
 
-// 添加编辑弹窗的状态
+const showUserInfo = ref(false)
 const showEditDialog = ref(false)
 
-// 模拟用户信息
-const userInfo = ref({
-  nickname: '菠萝🍍',
-  avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s',
-  account: '2493381254',
-  status: '在线',
-  gender: '男',
-  birthday: '2000-01-01',
-  location: '中国',
-  signature: '这个人很懒，什么都没留下...'
-})
+// 从 store 中获取用户信息
+const userInfo = computed(() => store.state.userInfo)
 
-// 菜单项配置
 const menuItems = [
   { label: '消息', path: '/chat', badge: 3 },
   { label: '联系人', path: '/contact', badge: 1 },
   { label: 'AI', path: '/ai' },
 ]
 
-
-// 处理保存用户信息
-const handleSaveUserInfo = (updatedInfo) => {
-  // 这里处理保存逻辑
+const handleSaveUserInfo = async (updatedInfo) => {
   console.log('更新的用户信息：', updatedInfo)
-  // 更新本地用户信息
-  Object.assign(userInfo, updatedInfo)
-  ElMessage.success('保存成功')
+  
+  // 获取存储在浏览器中的 token
+  const token = getToken()
+  
+  try {
+    // 发送更新用户信息的请求
+    const response = await axios.post('http://localhost:8080/im-server/user/update', {
+      'avatar_url': updatedInfo.avatarUrl,
+      'username': updatedInfo.nickname,
+      'gender': updatedInfo.gender,
+      'bio': updatedInfo.signature,
+      'city': updatedInfo.location
+    }, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    // 更新成功后，查询最新的用户信息
+    const userInfoResponse = await axios.get('http://localhost:8080/im-server/user/userInfo', {
+      headers: {
+        'token': token
+      }
+    })
+    
+    // 更新 Vuex store 中的用户信息
+    console.log('更新后查询的用户信息', userInfoResponse.data.data)
+    await store.dispatch('updateUserInfo', userInfoResponse.data.data)
+
+    // 显示成功通知
+    ElNotification({
+      title: '更新成功',
+      message: '用户信息已成功更新！',
+      type: 'success',
+      duration: 3000
+    })
+  } catch (error) {
+    console.error('更新失败:', error.response.data)
+    // 显示失败通知
+    ElNotification({
+      title: '更新失败',
+      message: error.response.data.message || '更新用户信息时出错',
+      type: 'error',
+      duration: 3000
+    })
+  }
 }
 
-
-// 编辑用户信息
 const editUserInfo = () => {
-  // 实现编辑资料的逻辑
   console.log('编辑资料')
-  showEditDialog = true
-  showUserInfo = false
+  showEditDialog.value = true
+  showUserInfo.value = false
 }
 
-// 当前路径
 const currentPath = computed(() => route.path)
 
-// 导航处理
 const handleNavigation = (path) => {
   router.push(path)
 }
 
-// 下拉菜单命令处理
-const handleCommand = (command) => {
+const handleCommand = async (command) => {
   switch (command) {
     case 'logout':
-      // 清除登录信息
-      localStorage.removeItem('token')
-      router.push('/login')
+      // 退出登录
+      const token = getToken()
+      try {
+        await axios.post('http://localhost:8080/im-server/logout', {}, {
+          headers: {
+            'token': token
+          }
+        })
+        // 清除本地存储的 token
+        localStorage.removeItem('token')
+        await router.push('/login')
+      } catch (error) {
+        console.error('退出登录失败:', error.response.data)
+        // 可以在这里添加通知用户的逻辑
+      }
       break
     case 'settings':
-      router.push('/settings')
+      await router.push('/settings')
       break
     case 'status':
-      // 处理在线状态变更
       break
   }
 }
@@ -244,41 +284,43 @@ const handleCommand = (command) => {
   overflow: hidden;
 }
 
-/* 添加到原有的 style 中 */
-.user-profile {
-  cursor: pointer;
-}
-
+/* 美化用户信息展示 */
 .user-info-content {
+  background-color: #fff;
+  border-radius: 8px;
   padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .user-info-header {
   display: flex;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .basic-info {
-  margin-left: 20px;
+  margin-left: 15px;
 }
 
 .basic-info h2 {
-  margin: 0 0 10px 0;
+  margin: 0;
   font-size: 20px;
+  color: #333;
 }
 
-.account {
-  color: #666;
-  font-size: 14px;
-  margin-bottom: 5px;
+.info-section {
+  margin-top: 10px;
 }
 
-.status {
+.info-item {
   display: flex;
-  align-items: center;
-  color: #67C23A;
-  font-size: 14px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.label {
+  font-weight: bold;
+  color: #666;
 }
 
 .status-dot {
@@ -287,48 +329,5 @@ const handleCommand = (command) => {
   background-color: #67C23A;
   border-radius: 50%;
   margin-right: 5px;
-}
-
-.info-section {
-  background-color: #f8f8f8;
-  border-radius: 4px;
-  padding: 15px;
-  margin-bottom: 20px;
-}
-
-.info-item {
-  display: flex;
-  margin-bottom: 10px;
-}
-
-.info-item .label {
-  width: 80px;
-  color: #666;
-}
-
-.action-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-/* 弹窗样式调整 */
-:deep(.el-dialog) {
-  border-radius: 8px;
-}
-
-:deep(.el-dialog__header) {
-  margin-right: 0;
-  border-bottom: 1px solid #eee;
-  padding: 20px;
-}
-
-:deep(.el-dialog__body) {
-  padding: 0;
-}
-
-:deep(.el-dialog__title) {
-  font-size: 18px;
-  font-weight: bold;
 }
 </style>

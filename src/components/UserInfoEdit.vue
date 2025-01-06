@@ -1,14 +1,27 @@
 <template>
   <el-dialog v-model="dialogVisible" title="编辑个人资料" width="500px">
     <el-form :model="form" label-width="80px">
+      <el-form-item label="头像">
+        <el-upload
+          class="avatar-uploader"
+          action="http://localhost:8080/im-server/upload-avatar"
+          :show-file-list="false"
+          :on-success="handleAvatarSuccess"
+          :before-upload="beforeAvatarUpload"
+        >
+          <img v-if="form.avatarUrl" :src="form.avatarUrl" class="avatar" />
+          <el-button size="small" type="primary">上传头像</el-button>
+        </el-upload>
+      </el-form-item>
+
       <el-form-item label="昵称">
         <el-input v-model="form.nickname" placeholder="请输入昵称" />
       </el-form-item>
 
       <el-form-item label="性别">
         <el-radio-group v-model="form.gender">
-          <el-radio label="男">男</el-radio>
-          <el-radio label="女">女</el-radio>
+          <el-radio label="male">男</el-radio>
+          <el-radio label="female">女</el-radio>
         </el-radio-group>
       </el-form-item>
 
@@ -53,11 +66,12 @@ const emit = defineEmits(['update:visible', 'save'])
 
 const dialogVisible = ref(props.visible)
 const form = ref({
+  avatarUrl: '',  // 新增字段用于存储头像URL
   nickname: '',
   gender: '',
-  birthday: '',
-  location: '',
-  signature: ''
+  birthday: '2000-01-01',  // 默认值
+  location: '北京',  // 默认值
+  signature: '人生就是旷野'  // 默认值
 })
 
 // 监听visible属性变化
@@ -66,11 +80,12 @@ watch(() => props.visible, (newVal) => {
   if (newVal) {
     // 打开弹窗时初始化表单数据
     form.value = {
-      nickname: props.userInfo.nickname,
+      avatarUrl: props.userInfo.avatar_url,  // 初始化头像URL
+      nickname: props.userInfo.username,
       gender: props.userInfo.gender,
-      birthday: props.userInfo.birthday,
-      location: props.userInfo.location,
-      signature: props.userInfo.signature
+      birthday: props.userInfo.data_of_birth || '2000-01-01',  // 使用默认值
+      location: props.userInfo.city || '北京',  // 使用默认值
+      signature: props.userInfo.bio || '人生就是旷野'  // 使用默认值
     }
   }
 })
@@ -92,6 +107,20 @@ const handleSave = () => {
   emit('save', { ...form.value })
   dialogVisible.value = false
 }
+
+// 处理头像上传成功
+const handleAvatarSuccess = (response, file) => {
+  form.value.avatarUrl = URL.createObjectURL(file.raw);  // 显示上传后的头像
+}
+
+// 限制头像上传的文件类型
+const beforeAvatarUpload = (file) => {
+  const isImage = file.type.startsWith('image/');
+  if (!isImage) {
+    this.$message.error('上传头像图片只能是 JPG/PNG 格式!');
+  }
+  return isImage;
+}
 </script>
 
 <style scoped>
@@ -107,5 +136,12 @@ const handleSave = () => {
 
 :deep(.el-form-item:last-child) {
   margin-bottom: 0;
+}
+
+.avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  margin-bottom: 10px;
 }
 </style>

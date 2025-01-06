@@ -5,10 +5,35 @@
     <div class="friend-list-container">
       <!-- 搜索框 -->
       <div class="search-bar">
-        <el-input v-model="searchText" placeholder="搜索" clearable>
-          <template #prefix>搜索</template>
+        <el-input v-model="searchText" placeholder="搜索" clearable @keyup.enter="searchFriends">
+          <template #prefix></template>
         </el-input>
       </div>
+
+      <!-- 搜索结果对话框 -->
+      <el-dialog v-model="showSearchResults" title="搜索结果" width="650px" :show-close="true" :close-on-click-modal="true">
+        <div v-if="searchResults.users && searchResults.users.length > 0">
+          <h3>用户</h3>
+          <div v-for="user in searchResults.users" :key="user.id" class="friend-item" @click="selectFriend(user)">
+            <el-avatar :size="30" :src="user.avatar_url" />
+            <div class="friend-info">
+              <div class="nickname">{{ user.username }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="searchResults.groups && searchResults.groups.length > 0">
+          <h3>群聊</h3>
+          <div v-for="group in searchResults.groups" :key="group.id" class="friend-item" @click="selectGroup(group)">
+            <el-avatar :size="30" :src="group.group_avatar" />
+            <div class="friend-info">
+              <div class="nickname">{{ group.name }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="searchResults.users.length === 0 && searchResults.groups.length === 0">没有找到相关结果</div>
+      </el-dialog>
 
       <!-- 在原有代码中添加 -->
       <el-dialog v-model="showNoticeDialog" :title="noticeType === 'friend' ? '好友通知' : '群通知'" width="650px"
@@ -297,6 +322,8 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import NoticeList from '../components/NoticeList.vue'
+import { getToken } from '../utils/utils.js'
+import axios from 'axios'
 
 const router = useRouter()
 const searchText = ref('')
@@ -306,13 +333,14 @@ const selectedGroup = ref(null)
 // 添加通知相关的状态
 const showNoticeDialog = ref(false)
 const noticeType = ref('friend')
+const showSearchResults = ref(false)
+const searchResults = ref({ users: [], groups: [] }) // 初始化为包含空数组的对象
 
 // 显示通知对话框
 const showNotice = (type) => {
   noticeType.value = type
   showNoticeDialog.value = true
 }
-
 
 // 标签页配置
 const tabs = [
@@ -467,6 +495,7 @@ const toggleGroup = (groupKey) => {
 const selectFriend = (friend) => {
   selectedFriend.value = friend
   selectedGroup.value = null
+  showSearchResults.value = false
 }
 
 // 选择群聊
@@ -513,6 +542,37 @@ const editAnnouncement = () => {
 // 退出群聊
 const quitGroup = (group) => {
   // 实现退出群聊的逻辑
+}
+
+// 搜索好友
+const searchFriends = async () => {
+  if (!searchText.value) {
+    showSearchResults.value = false
+    return
+  }
+
+  try {
+    const token = getToken() // 获取 token
+    const response = await axios.post('http://localhost:8080/im-server/user/query', {
+      search_id: searchText.value
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+
+    // 处理返回结果
+    searchResults.value = {
+      users: response.data.data.users || [], // 确保是数组
+      groups: response.data.data.groups || []  // 确保是数组
+    }
+
+    showSearchResults.value = true
+  } catch (error) {
+    console.error('搜索失败:', error)
+    showSearchResults.value = false
+  }
 }
 </script>
 

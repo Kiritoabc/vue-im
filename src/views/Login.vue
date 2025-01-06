@@ -75,8 +75,16 @@ const handleLogin = async () => {
       password: loginForm.password
     })
     // 获取用户信息
+    const token = response.data.data.token
+    // 保存token到本地存储
+    localStorage.setItem('token', token)
     const userId = response.data.data.user_id
-    const userInfoResponse = await axios.get(`http://localhost:8080/im-server/user/${userId}`)
+    const userInfoResponse = await axios.get(`http://localhost:8080/im-server/user/userInfo`, {
+      headers: {
+        'token': token
+      }
+    })
+    console.log("用户登录的信息"+userInfoResponse.data.data)
     // 使用vuex 保存用户信息
     await store.dispatch('updateUserInfo', userInfoResponse.data.data)
 
@@ -85,7 +93,6 @@ const handleLogin = async () => {
       title: '登录成功',
       message: '欢迎回来！',
       type: 'success',
-      // position: 'top-center',
       duration: 3000
     })
 
@@ -98,7 +105,6 @@ const handleLogin = async () => {
       title: '登录失败',
       message: error.response.data.message || '请检查您的用户名和密码',
       type: 'error',
-      // position: 'top-center',
       duration: 3000
     })
   }
@@ -118,7 +124,6 @@ const handleRegister = async () => {
       title: '注册成功',
       message: '您已成功注册，请登录！',
       type: 'success',
-      // position: 'top-center',
       duration: 3000
     })
 
