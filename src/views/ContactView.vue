@@ -85,9 +85,8 @@
       <!-- 在原有代码中添加 -->
       <el-dialog v-model="showNoticeDialog" :title="noticeType === 'friend' ? '好友通知' : '群通知'" width="650px"
         :show-close="true" :close-on-click-modal="true">
-        <NoticeList :type="noticeType" />
+        <NoticeList :type="noticeType" :show-notice-dialog="showNoticeDialog"/>
       </el-dialog>
-
 
       <!-- 修改原有的好友通知和群通知点击事件 -->
       <div class="friend-list-container">
@@ -244,8 +243,6 @@
         </div>
       </div>
     </div>
-    <!-- 添加好友对话框 -->
-    <AddFriendDialog :visible="showAddFriend" @update:visible="showAddFriend = $event" />
     <!-- 右侧详情 -->
     <div class="detail-container">
       <!-- 好友详情 -->
@@ -373,7 +370,8 @@ import { useRouter } from 'vue-router'
 import NoticeList from '../components/NoticeList.vue'
 import { getToken } from '../utils/utils.js'
 import axios from 'axios'
-import AddFriendDialog from '../components/AddFriendDialog.vue'
+import { ElNotification } from 'element-plus' // 导入 ElNotification
+
 
 const router = useRouter()
 const searchText = ref('')
@@ -396,7 +394,6 @@ const friendForm = ref({
   verification: '',
   avatar: '' // 添加头像字段
 })
-
 
 
 // 标签页配置
@@ -536,6 +533,15 @@ const joinedGroups = [
   }
 ]
 
+const updateNotice = (id, action) => {
+  const notice = notices.value.find(n => n.id === id)
+  if (notice) {
+    notice.handled = true
+    notice.status = action === 'accept' ? 'accepted' : 'rejected'
+  }
+}
+
+
 // 是否为群管理员
 const isGroupAdmin = computed(() => {
   if (!selectedGroup.value) return false
@@ -633,10 +639,42 @@ const searchFriends = async () => {
 }
 
 // 添加好友逻辑
-const addFriend = () => {
+const addFriend = async () => {
   console.log('添加好友:', friendForm.value)
-  // 在这里处理添加好友的逻辑
-  showAddFriend.value = false // 关闭对话框
+  try {
+    const token = getToken(); // 获取 token
+    const response = await axios.post('http://localhost:8080/im-server/user/add_friend', {
+      'friend_id': friendForm.value.id, // 好友ID
+      'remark': friendForm.value.remark, // 备注
+      'group_id': 1, // 分组ID（需要根据实际情况调整）
+      'content': friendForm.value.verification // 验证信息
+    }, {
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+    // 处理成功响应
+    console.log('添加好友成功:', response.data);
+    // 可以在这里显示成功消息
+    ElNotification({
+      title: '成功',
+      message: '好友添加请求已发送成功！',
+      type: 'success',
+      duration: 3000 // 持续时间
+    });
+  } catch (error) {
+    console.error('添加好友请求失败:', error);
+    ElNotification({
+      title: '错误',
+      message: '添加好友请求失败，请检查网络或稍后重试。',
+      type: 'error',
+      duration: 3000 // 持续时间
+    });
+    // 可以在这里显示错误消息
+  } finally {
+    showAddFriend.value = false; // 关闭对话框
+  }
 }
 
 // 加入群聊

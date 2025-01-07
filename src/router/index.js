@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import ChatView from '../views/ChatView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -27,8 +28,8 @@ const router = createRouter({
               component: () => import('../views/ChatView.vue')
             },
             {
-              path: 'private/:id',  // 添加私聊动态路由 
-              name: 'privateChat', 
+              path: 'personal/:id',  // 添加私聊动态路由
+              name: 'PersonalChat',
               component: () => import('../views/ChatView.vue')
             }
           ]

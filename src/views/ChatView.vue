@@ -11,7 +11,7 @@
         <!-- 可选择的群聊和个人聊天 -->
         <div class="chat-items">
           <div v-for="chat in mockChats" :key="chat.id" :class="['chat-item', { active: chat.id === currentChatId }]"
-            @click="$router.push(`/chat/group/${chat.id}`)">
+               @click="$router.push(`/chat/${chat.type}/${chat.id}`)">
             <el-avatar :src="chat.avatar" />
             <div class="chat-info">
               <div class="chat-name">{{ chat.name }}</div>
@@ -49,6 +49,7 @@
           <el-button type="primary" @click="sendMessage">发送</el-button>
         </div>
       </div>
+
     </div>
 
 
@@ -225,6 +226,7 @@ const mockChats = [
     name: '乐园养老院',
     avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s',
     lastMessage: '大家晚上好啊~',
+    type: 'group',
     messages: [
       {
         id: 1,
@@ -261,6 +263,7 @@ const mockChats = [
     name: '技术交流群',
     avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s',
     lastMessage: '有人在线吗？',
+    type: 'group',
     messages: [
       {
         id: 1,
@@ -289,6 +292,22 @@ const mockChats = [
         senderId: 1,
         senderName: '菠萝',
         avatar: mockUser.avatar
+      },
+    ]
+  },
+  {
+    id: 3,
+    name: '可莉',
+    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s',
+    lastMessage: '你好啊！',
+    type: 'personal',
+    messages: [
+      {
+        id: 1,
+        content: '你好啊！',
+        senderId: 2,
+        senderName: '可莉',
+        avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s'
       },
     ]
   }
@@ -334,15 +353,23 @@ const sendPrivateMessage = (id) => {
 
 const sendMessage = () => {
   if (!messageText.value.trim()) return
-  currentChat.value.messages.push({
+  const chatType = currentChat.value.type; // 获取当前聊天类型
+  const newMessage = {
     id: currentChat.value.messages.length + 1,
     content: messageText.value,
     senderId: mockUser.id,
     senderName: mockUser.name,
     avatar: mockUser.avatar
-  })
+  };
 
-  messageText.value = ''
+  if (chatType === 'group') {
+    currentChat.value.messages.push(newMessage); // 群聊消息
+  } else if (chatType === 'personal') {
+    // 个人聊天逻辑
+    currentChat.value.messages.push(newMessage); // 个人聊天消息
+  }
+
+  messageText.value = ''; // 清空输入框
 }
 </script>
 

@@ -78,7 +78,6 @@ const handleLogin = async () => {
     const token = response.data.data.token
     // 保存token到本地存储
     localStorage.setItem('token', token)
-    const userId = response.data.data.user_id
     const userInfoResponse = await axios.get(`http://localhost:8080/im-server/user/userInfo`, {
       headers: {
         'token': token
