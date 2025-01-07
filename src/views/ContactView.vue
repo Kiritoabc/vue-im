@@ -12,27 +12,74 @@
 
       <!-- 搜索结果对话框 -->
       <el-dialog v-model="showSearchResults" title="搜索结果" width="650px" :show-close="true" :close-on-click-modal="true">
-        <div v-if="searchResults.users && searchResults.users.length > 0">
-          <h3>用户</h3>
+        <div class="category-tabs">
+          <div class="tab-item" :class="{ active: searchActiveTab === 'all' }" @click="searchActiveTab = 'all'">全部</div>
+          <div class="tab-item" :class="{ active: searchActiveTab === 'users' }" @click="searchActiveTab = 'users'">用户</div>
+          <div class="tab-item" :class="{ active: searchActiveTab === 'groups' }" @click="searchActiveTab = 'groups'">群聊</div>
+        </div>
+
+        <div v-if="searchActiveTab === 'all' || searchActiveTab === 'users'">
+          <h3 v-if="searchResults.users.length > 0">用户</h3>
           <div v-for="user in searchResults.users" :key="user.id" class="friend-item" @click="selectFriend(user)">
             <el-avatar :size="30" :src="user.avatar_url" />
             <div class="friend-info">
               <div class="nickname">{{ user.username }}</div>
+              <div class="phone-number">{{ user.phone_number }}</div>
+              <div class="bio">{{ user.bio }}</div>
             </div>
+            <el-button size="small" @click.stop="showAddFriendDialog(user)" style="margin-left: auto;">添加好友</el-button>
           </div>
         </div>
 
-        <div v-if="searchResults.groups && searchResults.groups.length > 0">
-          <h3>群聊</h3>
-          <div v-for="group in searchResults.groups" :key="group.id" class="friend-item" @click="selectGroup(group)">
+        <div v-if="searchActiveTab === 'all' || searchActiveTab === 'groups'">
+          <h3 v-if="searchResults.groups && searchResults.groups.length > 0">群聊</h3>
+          <div v-for="group in searchResults.groups" :key="group.id" class="friend-item">
             <el-avatar :size="30" :src="group.group_avatar" />
             <div class="friend-info">
-              <div class="nickname">{{ group.name }}</div>
+              <div class="group-name">{{ group.name }}</div>
+              <div class="member-count">{{ group.memberCount }}人</div>
             </div>
+            <el-button size="small" @click="joinGroup(group)" style="margin-left: auto;">加入</el-button>
           </div>
         </div>
 
         <div v-if="searchResults.users.length === 0 && searchResults.groups.length === 0">没有找到相关结果</div>
+      </el-dialog>
+
+ <!-- 添加好友对话框 -->
+    <el-dialog v-model="showAddFriend" title="" @close="showAddFriend = false" class="add-friend-dialog" width="400px">
+        <div class="dialog-header">
+
+          <el-avatar :size="50" :src="friendForm.avatar" class="friend-avatar" />
+          <div>
+            <h3 class="dialog-title">申请加好友</h3>
+            <p class="friend-id">uid:  {{ friendForm.id }}</p> <!-- 显示好友ID -->
+          </div>
+        </div>
+        <div>
+          <el-form :model="friendForm" label-width="100px">
+            <el-form-item label="好友昵称">
+              <el-input v-model="friendForm.nickname" disabled></el-input>
+            </el-form-item>
+            <el-form-item label="好友备注">
+              <el-input v-model="friendForm.remark" placeholder="请输入备注"></el-input>
+            </el-form-item>
+            <el-form-item label="分组">
+              <el-select v-model="friendForm.group" placeholder="请选择分组">
+                <el-option label="朋友" value="朋友"></el-option>
+                <el-option label="家人" value="家人"></el-option>
+                <el-option label="同事" value="同事"></el-option>
+              </el-select>
+            </el-form-item>
+            <el-form-item label="好友验证">
+              <el-input type="textarea" v-model="friendForm.verification" placeholder="请输入验证信息" rows="4"></el-input>
+            </el-form-item>
+          </el-form>
+        </div>
+        <span slot="footer" class="dialog-footer">
+          <el-button @click="showAddFriend = false">取 消</el-button>
+          <el-button type="primary" @click="addFriend">确 定</el-button>
+        </span>
       </el-dialog>
 
       <!-- 在原有代码中添加 -->
@@ -40,6 +87,7 @@
         :show-close="true" :close-on-click-modal="true">
         <NoticeList :type="noticeType" />
       </el-dialog>
+
 
       <!-- 修改原有的好友通知和群通知点击事件 -->
       <div class="friend-list-container">
@@ -196,7 +244,8 @@
         </div>
       </div>
     </div>
-
+    <!-- 添加好友对话框 -->
+    <AddFriendDialog :visible="showAddFriend" @update:visible="showAddFriend = $event" />
     <!-- 右侧详情 -->
     <div class="detail-container">
       <!-- 好友详情 -->
@@ -324,6 +373,7 @@ import { useRouter } from 'vue-router'
 import NoticeList from '../components/NoticeList.vue'
 import { getToken } from '../utils/utils.js'
 import axios from 'axios'
+import AddFriendDialog from '../components/AddFriendDialog.vue'
 
 const router = useRouter()
 const searchText = ref('')
@@ -335,12 +385,19 @@ const showNoticeDialog = ref(false)
 const noticeType = ref('friend')
 const showSearchResults = ref(false)
 const searchResults = ref({ users: [], groups: [] }) // 初始化为包含空数组的对象
+const searchActiveTab = ref('all') // 使用 searchActiveTab 代替 activeTab
+const showAddFriend = ref(false)
+// const friendId = ref('') // 用于存储输入的好友ID
+const friendForm = ref({
+  id: '',
+  nickname: '',
+  remark: '',
+  group: '',
+  verification: '',
+  avatar: '' // 添加头像字段
+})
 
-// 显示通知对话框
-const showNotice = (type) => {
-  noticeType.value = type
-  showNoticeDialog.value = true
-}
+
 
 // 标签页配置
 const tabs = [
@@ -574,6 +631,38 @@ const searchFriends = async () => {
     showSearchResults.value = false
   }
 }
+
+// 添加好友逻辑
+const addFriend = () => {
+  console.log('添加好友:', friendForm.value)
+  // 在这里处理添加好友的逻辑
+  showAddFriend.value = false // 关闭对话框
+}
+
+// 加入群聊
+const joinGroup = (group) => {
+  // 加入群聊的逻辑
+  console.log('加入群聊:', group)
+}
+
+// 显示添加好友对话框
+const showAddFriendDialog = (user) => {
+  friendForm.value.nickname = user.username // 填充好友昵称
+  friendForm.value.remark = '' // 备注可以为空
+  friendForm.value.group = '朋友' // 默认分组
+  friendForm.value.verification = '' // 验证信息可以为空
+  friendForm.value.avatar = user.avatar_url // 填充好友头像
+  friendForm.value.id  = user.id
+  console.log('添加好友:',friendForm.value.avatar_url)
+  showAddFriend.value = true
+}
+
+// 显示通知对话框
+const showNotice = (type) => {
+  noticeType.value = type
+  showNoticeDialog.value = true
+}
+
 </script>
 
 <style scoped>
@@ -803,5 +892,157 @@ const searchFriends = async () => {
   display: flex;
   gap: 10px;
   margin-top: 20px;
+}
+
+.category-tabs {
+  display: flex;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.tab-item {
+  padding: 5px 15px;
+  cursor: pointer;
+  border-radius: 3px;
+  margin-right: 10px;
+}
+
+.tab-item:hover {
+  background-color: #f5f5f5;
+}
+
+.tab-item.active {
+  background-color: #e6f1fc;
+  color: #409EFF;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.friend-item:hover {
+  background-color: #f5f5f5;
+}
+
+.friend-info {
+  margin-left: 10px;
+}
+
+.nickname {
+  font-weight: bold;
+}
+
+.phone-number,
+.bio {
+  font-size: 12px;
+  color: #666;
+}
+
+.contact-container {
+  display: flex;
+  height: 100%;
+  background-color: #fff;
+}
+
+.search-bar {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.category-tabs {
+  display: flex;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.tab-item {
+  padding: 5px 15px;
+  cursor: pointer;
+  border-radius: 3px;
+  margin-right: 10px;
+}
+
+.tab-item:hover {
+  background-color: #f5f5f5;
+}
+
+.tab-item.active {
+  background-color: #e6f1fc;
+  color: #409EFF;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.friend-item:hover {
+  background-color: #f5f5f5;
+}
+
+.friend-info {
+  margin-left: 10px;
+}
+
+.nickname {
+  font-weight: bold;
+}
+
+.phone-number,
+.bio {
+  font-size: 12px;
+  color: #666;
+}
+/* 111 */
+.add-friend-dialog {
+  border-radius: 12px; /* 圆角 */
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* 中心对齐 */
+  margin-bottom: 10px; /* 增加间距 */
+}
+
+.dialog-title {
+  margin: 0 10px; /* 标题与头像之间的间距 */
+}
+
+.friend-id {
+  font-size: 12px; /* ID字体大小 */
+  color: #666; /* ID颜色 */
+  text-align: center; /* 居中对齐 */
+}
+
+.friend-avatar {
+  margin-right: 10px; /* 头像与标题之间的间距 */
+}
+
+.el-dialog {
+  border-radius: 12px; /* 圆角 */
+}
+
+.el-input,
+.el-select {
+  border-radius: 6px; /* 圆角 */
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end; /* 右对齐 */
+}
+
+.el-button {
+  border-radius: 20px; /* 圆角 */
+}
+
+.el-form-item {
+  margin-bottom: 15px; /* 增加间距 */
 }
 </style>
