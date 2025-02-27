@@ -6,11 +6,11 @@
         <el-button type="primary" @click="createNewChat">新建会话</el-button>
       </div>
       <div class="conversations">
-        <div 
-          v-for="chat in aiChats" 
-          :key="chat.id"
-          :class="['conversation-item', { active: currentChat?.id === chat.id }]"
-          @click="switchChat(chat)"
+        <div
+            v-for="chat in aiChats"
+            :key="chat.id"
+            :class="['conversation-item', { active: currentChat?.id === chat.id }]"
+            @click="switchChat(chat)"
         >
           <span class="chat-title">{{ chat.title }}</span>
           <el-dropdown trigger="click" @command="handleCommand">
@@ -39,10 +39,10 @@
       <!-- 消息区域 -->
       <div class="message-area" ref="messageArea">
         <template v-if="currentChat">
-          <div 
-            v-for="msg in currentChat.messages" 
-            :key="msg.id"
-            :class="['message', { 'message-ai': msg.role === 'ai', 'message-user': msg.role === 'user' }]"
+          <div
+              v-for="msg in currentChat.messages"
+              :key="msg.id"
+              :class="['message', { 'message-ai': msg.role === 'ai', 'message-user': msg.role === 'user' }]"
           >
             <template v-if="msg.role === 'ai'">
               <el-avatar :size="40" :src="aiAvatar" />
@@ -71,11 +71,11 @@
       <!-- 输入区域 -->
       <div class="input-area">
         <el-input
-          v-model="messageText"
-          type="textarea"
-          :rows="3"
-          placeholder="输入消息..."
-          @keyup.enter.ctrl="sendMessage"
+            v-model="messageText"
+            type="textarea"
+            :rows="3"
+            placeholder="输入消息..."
+            @keyup.enter.ctrl="sendMessage"
         />
         <div class="input-actions">
           <span class="hint">Ctrl + Enter 发送</span>
@@ -87,13 +87,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useStore } from 'vuex'
 
 const messageText = ref('')
 const sending = ref(false)
 const messageArea = ref(null)
 const currentChat = ref(null)
+const store = useStore()
+
+
+// 从 store 中获取用户信息
+const userInfo = computed(() => store.state.userInfo)
+
+console.log(userInfo.value.id)
 
 // 模拟数据
 const userAvatar = 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
@@ -142,34 +150,65 @@ const createNewChat = () => {
 
 // 发送消息
 const sendMessage = async () => {
-  if (!messageText.value.trim() || sending.value) return
+  if (!messageText.value.trim() || sending.value) return;
   if (!currentChat.value) {
-    createNewChat()
+    createNewChat();
   }
 
-  sending.value = true
+  sending.value = true;
   const userMessage = {
+    userId: userInfo.value.id,
     id: currentChat.value.messages.length + 1,
     role: 'user',
-    content: messageText.value
-  }
-  currentChat.value.messages.push(userMessage)
-  messageText.value = ''
-  await nextTick()
-  scrollToBottom()
+    content: messageText.value,
+  };
+  console.log(userMessage)
+  currentChat.value.messages.push(userMessage);
+  messageText.value = '';
+  await nextTick();
+  scrollToBottom();
 
-  // 模拟AI回复
-  setTimeout(() => {
-    const aiMessage = {
-      id: currentChat.value.messages.length + 1,
-      role: 'ai',
-      content: '这是一个模拟的AI回复消息。在实际应用中，这里应该调用AI接口获取回复。'
+  // 初始化 WebSocket 连接
+  const ws = new WebSocket('ws://localhost:8080/im-server/ws');
+
+  ws.onopen = () => {
+    // 发送用户消息
+    ws.send(JSON.stringify(userMessage));
+  };
+  // 响应AI的回复
+  ws.onmessage = (event) => {
+    const aiMessage = currentChat.value.messages.find((msg) => msg.role === 'ai' && msg.id === 'streaming');
+    if (aiMessage) {
+      // 追加流式数据
+      console.log("追加流式数据----------")
+      aiMessage.content += event.data;
+    } else {
+      // 创建新的 AI 消息
+      const newAiMessage = {
+        id: 'streaming', // 使用特殊 ID 标识流式消息
+        role: 'ai',
+        content: event.data,
+      };
+      currentChat.value.messages.push(newAiMessage);
     }
-    currentChat.value.messages.push(aiMessage)
-    sending.value = false
-    scrollToBottom()
-  }, 1000)
-}
+    // sending.value = false;
+    scrollToBottom();
+  };
+
+  ws.onclose = () => {
+    // 标记流式消息完成
+    const aiMessage = currentChat.value.messages.find((msg) => msg.role === 'ai' && msg.id === 'streaming');
+    if (aiMessage) {
+      aiMessage.id = currentChat.value.messages.length + 1; // 分配正式 ID
+    }
+    sending.value = false;
+  };
+
+  ws.onerror = (error) => {
+    console.error('WebSocket error:', error);
+    sending.value = false;
+  };
+};
 
 // 复制消息
 const copyMessage = (text) => {
