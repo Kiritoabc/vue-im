@@ -10,7 +10,7 @@
         </div>
         <!-- 可选择的群聊和个人聊天 -->
         <div class="chat-items">
-          <div v-for="chat in mockChats" :key="chat.id" :class="['chat-item', { active: chat.id === currentChatId }]"
+          <div v-for="chat in chatList" :key="chat.id" :class="['chat-item', { active: chat.id === currentChatId }]"
                @click="$router.push(`/chat/${chat.type}/${chat.id}`)">
             <el-avatar :src="chat.avatar" />
             <div class="chat-info">
@@ -91,13 +91,13 @@
 
         <!-- 操作按钮 -->
         <div class="action-buttons">
-          <el-button 
-            v-if="!isFriend(selectedSender.id)" 
-            type="primary" 
+          <el-button
+            v-if="!isFriend(selectedSender.id)"
+            type="primary"
             @click="addFriend(selectedSender.id)">添加好友</el-button>
-          <el-button 
-            v-else 
-            type="primary" 
+          <el-button
+            v-else
+            type="primary"
             @click="sendPrivateMessage(selectedSender.senderId)">发送消息</el-button>
           <el-button @click="showSenderDialog = false">关闭</el-button>
         </div>
@@ -117,9 +117,6 @@
         </div>
       </div>
     </div>
-
-
-
 
     <!-- 添加成员信息弹窗 -->
     <el-dialog v-model="showMemberDialog" title="成员信息" width="400px" :show-close="true" :close-on-click-modal="true">
@@ -168,8 +165,11 @@
   </div>
 </template>
 <script setup>
-import { ref, watch, computed } from 'vue'
+import {ref, watch, computed, onMounted, onUnmounted} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import axios from "axios";
+import {ElMessage} from "element-plus";
+import store from "../store/index.js";
 
 const router = useRouter()
 const route = useRoute()
@@ -183,6 +183,42 @@ const selectedMember = ref(null)
 // 展示消息发送者的信息
 const showSenderDialog = ref(false)
 const selectedSender = ref(null)
+
+// 替换原来的 mockChats
+const chatList = ref([])
+
+// 从 store 中获取用户信息
+const userInfo = computed(() => store.state.userInfo)
+
+console.log(userInfo.value.id)
+
+let ws = null
+
+// 获取聊天列表数据
+const fetchChatList = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.get('http://localhost:8080/im-server/friends/usr/friends_chat', {
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+
+    // 转换后台数据格式以匹配前端需求
+    chatList.value = response.data.data.map(chat => ({
+      id: chat.id,
+      name: chat.name || chat.nickname, // 根据实际后台字段调整
+      avatar: chat.avatar,
+      lastMessage: chat.lastMessage || '暂无消息',
+      type: chat.type || 'personal', // 根据实际后台字段调整
+      messages: chat.messages || [] // 如果后台直接提供消息列表
+    }))
+  } catch (error) {
+    console.error('获取聊天列表失败:', error)
+    ElMessage.error('获取聊天列表失败')
+  }
+}
 
 // 模拟好友数据
 const friends = ref([
@@ -215,103 +251,106 @@ watch(
 
 // 模拟数据
 const mockUser = {
-  id: 1,
-  name: '当前用户',
-  avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s'
+  id: userInfo.value.id,
+  name: userInfo.value.name,
+  avatar: userInfo.value.avatar
 }
 
-const mockChats = [
-  {
-    id: 1,
-    name: '乐园养老院',
-    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s',
-    lastMessage: '大家晚上好啊~',
-    type: 'group',
-    messages: [
-      {
-        id: 1,
-        content: '如此甚好',
-        senderId: 2,
-        senderName: '钟离',
-        avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRGxn2g1MNYiWj74sDq3vLA96CCv8uc66CFcQ&s'
-      },
-      {
-        id: 2,
-        content: '钟离先生你好嗷~',
-        senderId: 1,
-        senderName: '菠萝',
-        avatar: mockUser.avatar
-      },
-      {
-        id: 3,
-        content: '小菠萝你也好',
-        senderId: 2,
-        senderName: '可莉',
-        avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRGxn2g1MNYiWj74sDq3vLA96CCv8uc66CFcQ&s'
-      },
-      {
-        id: 4,
-        content: '可莉，你也晚上好哦',
-        senderId: 1,
-        senderName: '菠萝',
-        avatar: mockUser.avatar
-      },
-    ]
-  },
-  {
-    id: 2,
-    name: '技术交流群',
-    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s',
-    lastMessage: '有人在线吗？',
-    type: 'group',
-    messages: [
-      {
-        id: 1,
-        content: '大家好啊！',
-        senderId: 2,
-        senderName: '可莉',
-        avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s'
-      },
-      {
-        id: 2,
-        content: '你好！',
-        senderId: 1,
-        senderName: '菠萝',
-        avatar: mockUser.avatar
-      },
-      {
-        id: 3,
-        content: '菠萝哥哥晚上好哦',
-        senderId: 2,
-        senderName: '可莉',
-        avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s'
-      },
-      {
-        id: 4,
-        content: '可莉，你也晚上好哦',
-        senderId: 1,
-        senderName: '菠萝',
-        avatar: mockUser.avatar
-      },
-    ]
-  },
-  {
-    id: 3,
-    name: '可莉',
-    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s',
-    lastMessage: '你好啊！',
-    type: 'personal',
-    messages: [
-      {
-        id: 1,
-        content: '你好啊！',
-        senderId: 2,
-        senderName: '可莉',
-        avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s'
-      },
-    ]
-  }
-]
+// mock聊天数据
+// const mockChats = [
+//   {
+//     id: 1,
+//     name: '乐园养老院',
+//     avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s',
+//     lastMessage: '大家晚上好啊~',
+//     type: 'group',
+//     messages: [
+//       {
+//         id: 1,
+//         content: '如此甚好',
+//         senderId: 2,
+//         senderName: '钟离',
+//         avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRGxn2g1MNYiWj74sDq3vLA96CCv8uc66CFcQ&s'
+//       },
+//       {
+//         id: 2,
+//         content: '钟离先生你好嗷~',
+//         senderId: 1,
+//         senderName: '菠萝',
+//         avatar: mockUser.avatar
+//       },
+//       {
+//         id: 3,
+//         content: '小菠萝你也好',
+//         senderId: 2,
+//         senderName: '可莉',
+//         avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRGxn2g1MNYiWj74sDq3vLA96CCv8uc66CFcQ&s'
+//       },
+//       {
+//         id: 4,
+//         content: '可莉，你也晚上好哦',
+//         senderId: 1,
+//         senderName: '菠萝',
+//         avatar: mockUser.avatar
+//       },
+//     ]
+//   },
+//   {
+//     id: 2,
+//     name: '技术交流群',
+//     avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s',
+//     lastMessage: '有人在线吗？',
+//     type: 'group',
+//     messages: [
+//       {
+//         id: 1,
+//         content: '大家好啊！',
+//         senderId: 2,
+//         senderName: '可莉',
+//         avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s'
+//       },
+//       {
+//         id: 2,
+//         content: '你好！',
+//         senderId: 1,
+//         senderName: '菠萝',
+//         avatar: mockUser.avatar
+//       },
+//       {
+//         id: 3,
+//         content: '菠萝哥哥晚上好哦',
+//         senderId: 2,
+//         senderName: '可莉',
+//         avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s'
+//       },
+//       {
+//         id: 4,
+//         content: '可莉，你也晚上好哦',
+//         senderId: 1,
+//         senderName: '菠萝',
+//         avatar: mockUser.avatar
+//       },
+//     ]
+//   },
+//   {
+//     id: 3,
+//     name: '可莉',
+//     avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s',
+//     lastMessage: '你好啊！',
+//     type: 'personal',
+//     messages: [
+//       {
+//         id: 1,
+//         content: '你好啊！',
+//         senderId: 2,
+//         senderName: '可莉',
+//         avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s'
+//       },
+//     ]
+//   }
+// ]
+
+// 后台数据
 
 const mockMembers = [
   { id: 1, name: '派蒙', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR5re36F5Y0vJ5iUVM_Sk3swdJ97yt9OZ3xBQ&s' },
@@ -319,16 +358,14 @@ const mockMembers = [
   { id: 3, name: '万叶', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS0t7r5dj987A6mOt3D7_JQOgW-48DqsdT1Ng&s' }
 ]
 
-// 当前聊天
+// 更新当前聊天的计算属性
 const currentChat = computed(() => {
-  console.log('currentChatId', currentChatId)
-  return mockChats.find(chat => chat.id === currentChatId.value)
+  return chatList.value.find(chat => chat.id === currentChatId.value)
 })
 
 // 当前消息列表
 const currentMessages = computed(() => {
-  console.log('currentMessages', currentChat.value)
-  return currentChat.value?.messages
+  return currentChat.value?.messages || []
 })
 
 // 显示成员信息
@@ -351,26 +388,91 @@ const sendPrivateMessage = (id) => {
   showSenderDialog.value = false
 }
 
-const sendMessage = () => {
-  if (!messageText.value.trim()) return
-  const chatType = currentChat.value.type; // 获取当前聊天类型
-  const newMessage = {
-    id: currentChat.value.messages.length + 1,
-    content: messageText.value,
-    senderId: mockUser.id,
-    senderName: mockUser.name,
-    avatar: mockUser.avatar
-  };
-
-  if (chatType === 'group') {
-    currentChat.value.messages.push(newMessage); // 群聊消息
-  } else if (chatType === 'personal') {
-    // 个人聊天逻辑
-    currentChat.value.messages.push(newMessage); // 个人聊天消息
+// 创建 WebSocket 连接
+const connectWebSocket = () => {
+  // const token = localStorage.getItem('token')
+  ws = new WebSocket(`ws://localhost:8080/im-server/private/chat`)
+  ws.onopen = () => {
+    console.log('WebSocket 连接已建立')
+    ws.send(userInfo.value.id)
   }
-
-  messageText.value = ''; // 清空输入框
+  // 接收到消息
+  ws.onmessage = (event) => {
+    try {
+      const message = JSON.parse(event.data)
+      // 如果是当前聊天，直接添加到消息列表
+      if (message.receiverId === userInfo.value.id) {
+        const newMessage = {
+          id: message.id || Date.now(),
+          content: message.content,
+          senderId: message.senderId,
+          receiverId: message.receiverId,
+          senderName: message.senderName,
+          avatar: message.avatar
+        }
+        if (!currentChat.value.messages) {
+          currentChat.value.messages = []
+        }
+        console.log(message)
+        currentChat.value.messages.push(newMessage)
+      }
+    } catch (error) {
+      console.error('处理消息失败:', error)
+    }
+  }
+  ws.onclose = () => {
+    console.log('WebSocket 连接已关闭')
+    // 可以在这里添加重连逻辑
+    setTimeout(connectWebSocket, 5000)
+  }
+  ws.onerror = (error) => {
+    console.error('WebSocket 错误:', error)
+    ElMessage.error('连接出错，正在重试...')
+  }
 }
+
+// todo：发送消息时更新聊天列表
+const sendMessage = async () => {
+  if (!messageText.value.trim() || !ws || ws.readyState !== WebSocket.OPEN) return
+  try {
+    // 添加到本地消息列表（乐观更新）
+    const newMessage = {
+      id: Date.now(),
+      content: messageText.value,
+      senderId: userInfo.value.id,
+      receiverId: currentChatId.value,
+      senderName: userInfo.value.username,
+      avatar: userInfo.value.avatar_url
+    }
+    ws.send(JSON.stringify(newMessage))
+    if (!currentChat.value.messages) {
+      currentChat.value.messages = []
+    }
+    console.log(JSON.stringify(newMessage))
+    currentChat.value.messages.push(newMessage)
+    // 更新最后一条消息
+    currentChat.value.lastMessage = messageText.value
+    // 清空输入框
+    messageText.value = ''
+  } catch (error) {
+    console.error('发送消息失败:', error)
+    ElMessage.error('发送消息失败')
+  }
+}
+
+// 在组件挂载时建立连接
+onMounted(() => {
+  fetchChatList()
+  connectWebSocket()
+})
+
+// 在组件卸载时关闭连接
+onUnmounted(() => {
+  if (ws) {
+    ws.close()
+  }
+})
+
 </script>
 
 <style scoped>

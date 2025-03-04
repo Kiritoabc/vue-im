@@ -243,6 +243,7 @@
         </div>
       </div>
     </div>
+
     <!-- 右侧详情 -->
     <div class="detail-container">
       <!-- 好友详情 -->
@@ -361,6 +362,7 @@
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
