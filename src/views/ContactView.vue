@@ -46,8 +46,8 @@
         <div v-if="searchResults.users.length === 0 && searchResults.groups.length === 0">没有找到相关结果</div>
       </el-dialog>
 
- <!-- 添加好友对话框 -->
-    <el-dialog v-model="showAddFriend" title="" @close="showAddFriend = false" class="add-friend-dialog" width="400px">
+      <!-- 添加好友对话框 -->
+      <el-dialog v-model="showAddFriend" title="" @close="showAddFriend = false" class="add-friend-dialog" width="400px">
         <div class="dialog-header">
 
           <el-avatar :size="50" :src="friendForm.avatar" class="friend-avatar" />
@@ -115,56 +115,24 @@
 
       <!-- 好友列表 -->
       <div v-if="activeTab === 'friends'" class="list-content">
-        <!-- 我的设备 -->
-        <div class="list-group">
-          <div class="group-header" @click="toggleGroup('devices')">
-            <span class="arrow">{{ expandedGroups.devices ? '▼' : '▶' }}</span>
-            <span>我的设备</span>
-            <span class="count">2</span>
+        <!-- 好友分组列表 -->
+        <div v-for="group in friendGroups" :key="group.group_id" class="friend-group">
+          <div class="group-header" @click="toggleGroup(group.group_id)">
+            <span class="arrow">{{ expandedGroups[group.group_id] ? '▼' : '▶' }}</span>
+            <span>{{ group.group_name }}</span>
+            <span class="count">({{ group.members.length }})</span>
           </div>
-          <div v-show="expandedGroups.devices" class="group-content">
-            <div v-for="device in devices" :key="device.id" class="friend-item">
-              <el-avatar :size="30" :src="device.avatar" />
+          <!-- 好友列表 -->
+          <div v-show="expandedGroups[group.group_id]" class="group-content">
+            <div v-for="friend in group.members"
+                 :key="friend.id"
+                 class="friend-item"
+                 :class="{ active: selectedFriend?.id === friend.id }"
+                 @click="selectFriend(friend)">
+              <el-avatar :size="30" :src="friend.avatar_url" />
               <div class="friend-info">
-                <div class="nickname">{{ device.name }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 特别关心 -->
-        <div class="list-group">
-          <div class="group-header" @click="toggleGroup('special')">
-            <span class="arrow">{{ expandedGroups.special ? '▼' : '▶' }}</span>
-            <span>特别关心</span>
-            <span class="count">1/2</span>
-          </div>
-          <div v-show="expandedGroups.special" class="group-content">
-            <div v-for="friend in specialFriends" :key="friend.id" class="friend-item"
-              :class="{ active: selectedFriend?.id === friend.id }" @click="selectFriend(friend)">
-              <el-avatar :size="30" :src="friend.avatar" />
-              <div class="friend-info">
-                <div class="nickname">{{ friend.nickname }}</div>
-                <div class="status">{{ friend.status }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 朋友列表 -->
-        <div class="list-group">
-          <div class="group-header" @click="toggleGroup('friends')">
-            <span class="arrow">{{ expandedGroups.friends ? '▼' : '▶' }}</span>
-            <span>朋友</span>
-            <span class="count">29/37</span>
-          </div>
-          <div v-show="expandedGroups.friends" class="group-content">
-            <div v-for="friend in friends" :key="friend.id" class="friend-item"
-              :class="{ active: selectedFriend?.id === friend.id }" @click="selectFriend(friend)">
-              <el-avatar :size="30" :src="friend.avatar" />
-              <div class="friend-info">
-                <div class="nickname">{{ friend.nickname }}</div>
-                <div class="status">{{ friend.status }}</div>
+                <div class="nickname">{{ friend.username }}</div>
+                <div class="status">{{ friend.bio || '[暂无签名]' }}</div>
               </div>
             </div>
           </div>
@@ -243,19 +211,18 @@
         </div>
       </div>
     </div>
-
     <!-- 右侧详情 -->
     <div class="detail-container">
       <!-- 好友详情 -->
       <div v-if="activeTab === 'friends' && selectedFriend" class="friend-detail">
         <div class="detail-header">
-          <el-avatar :size="80" :src="selectedFriend.avatar" />
+          <el-avatar :size="80" :src="selectedFriend.avatar_url" />
           <div class="basic-info">
             <h2>{{ selectedFriend.nickname }}</h2>
-            <div class="account">QQ：{{ selectedFriend.account }}</div>
+            <div class="account">QQ：{{ selectedFriend.phone_number }}</div>
             <div class="online-status">
               <span class="status-dot"></span>
-              {{ selectedFriend.status }}
+              {{ selectedFriend.status || '离线' }}
             </div>
           </div>
         </div>
@@ -264,7 +231,7 @@
           <div class="info-section">
             <div class="info-item">
               <span class="label">备注名</span>
-              <span>{{ selectedFriend.remarkName || '暂无备注' }}</span>
+              <span>{{ selectedFriend.username || '暂无备注' }}</span>
             </div>
             <div class="info-item">
               <span class="label">性别</span>
@@ -272,11 +239,11 @@
             </div>
             <div class="info-item">
               <span class="label">生日</span>
-              <span>{{ selectedFriend.birthday }}</span>
+              <span>{{ selectedFriend.birthday || '2000-01-01' }}</span>
             </div>
             <div class="info-item">
               <span class="label">所在地</span>
-              <span>{{ selectedFriend.location }}</span>
+              <span>{{ selectedFriend.location || '中国' }}</span>
             </div>
           </div>
 
@@ -362,12 +329,11 @@
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import {ref, reactive, computed, onMounted} from 'vue'
 import { useRouter } from 'vue-router'
 import NoticeList from '../components/NoticeList.vue'
 import { getToken } from '../utils/utils.js'
@@ -378,8 +344,12 @@ import { ElNotification } from 'element-plus' // 导入 ElNotification
 const router = useRouter()
 const searchText = ref('')
 const activeTab = ref('friends')
+const friendGroups = ref([])
 const selectedFriend = ref(null)
 const selectedGroup = ref(null)
+// 分组展开状态
+const expandedGroups = reactive({
+})
 // 添加通知相关的状态
 const showNoticeDialog = ref(false)
 const noticeType = ref('friend')
@@ -387,6 +357,8 @@ const showSearchResults = ref(false)
 const searchResults = ref({ users: [], groups: [] }) // 初始化为包含空数组的对象
 const searchActiveTab = ref('all') // 使用 searchActiveTab 代替 activeTab
 const showAddFriend = ref(false)
+
+
 // const friendId = ref('') // 用于存储输入的好友ID
 const friendForm = ref({
   id: '',
@@ -397,23 +369,33 @@ const friendForm = ref({
   avatar: '' // 添加头像字段
 })
 
+// 获取好友列表
+const fetchFriendsList = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.get('http://localhost:8080/im-server/friends/user/groups', {
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+
+    friendGroups.value = response.data.data
+    // todo: 初始化展开状态
+    response.data.data.forEach(group => {
+      expandedGroups[group.group_id] = true
+    })
+  } catch (error) {
+    console.error('获取好友列表失败:', error)
+    ElMessage.error('获取好友列表失败')
+  }
+}
 
 // 标签页配置
 const tabs = [
   { key: 'friends', label: '好友' },
   { key: 'groups', label: '群聊' }
 ]
-
-// 分组展开状态
-const expandedGroups = reactive({
-  devices: true,
-  special: true,
-  friends: true,
-  starred: true,
-  created: true,
-  managed: true,
-  joined: true
-})
 
 // 设备列表
 const devices = [
@@ -551,17 +533,22 @@ const isGroupAdmin = computed(() => {
     managedGroups.some(g => g.id === selectedGroup.value.id)
 })
 
-// 展开/收起分组
-const toggleGroup = (groupKey) => {
-  expandedGroups[groupKey] = !expandedGroups[groupKey]
+// 切换分组展开/收起
+const toggleGroup = (groupId) => {
+  expandedGroups[groupId] = !expandedGroups[groupId]
 }
 
 // 选择好友
 const selectFriend = (friend) => {
   selectedFriend.value = friend
-  selectedGroup.value = null
-  showSearchResults.value = false
 }
+
+// 选择好友
+// const selectFriend = (friend) => {
+//   selectedFriend.value = friend
+//   selectedGroup.value = null
+//   showSearchResults.value = false
+// }
 
 // 选择群聊
 const selectGroup = (group) => {
@@ -571,7 +558,7 @@ const selectGroup = (group) => {
 
 // 发送消息
 const sendMessage = (friend) => {
-  router.push(`/chat/private/${friend.id}`)
+  router.push(`/chat/personal/${friend.id}`)
 }
 
 // 编辑备注
@@ -615,7 +602,6 @@ const searchFriends = async () => {
     showSearchResults.value = false
     return
   }
-
   try {
     const token = getToken() // 获取 token
     const response = await axios.post('http://localhost:8080/im-server/user/query', {
@@ -626,13 +612,11 @@ const searchFriends = async () => {
         'token': token
       }
     })
-
     // 处理返回结果
     searchResults.value = {
       users: response.data.data.users || [], // 确保是数组
       groups: response.data.data.groups || []  // 确保是数组
     }
-
     showSearchResults.value = true
   } catch (error) {
     console.error('搜索失败:', error)
@@ -703,6 +687,9 @@ const showNotice = (type) => {
   showNoticeDialog.value = true
 }
 
+onMounted(() => {
+  fetchFriendsList()
+})
 </script>
 
 <style scoped>
@@ -1084,5 +1071,117 @@ const showNotice = (type) => {
 
 .el-form-item {
   margin-bottom: 15px; /* 增加间距 */
+}
+
+.chat-container {
+  display: flex;
+  height: 100%;
+  background: #f5f5f5;
+}
+
+.friend-list-container {
+  width: 250px;
+  background: #fff;
+  border-right: 1px solid #e0e0e0;
+  overflow-y: auto;
+}
+
+.search-bar {
+  padding: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.friend-group {
+  margin-bottom: 10px;
+}
+
+.group-header {
+  padding: 8px 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #666;
+}
+
+.arrow {
+  margin-right: 5px;
+  font-size: 12px;
+}
+
+.count {
+  margin-left: 5px;
+  font-size: 12px;
+  color: #999;
+}
+
+.friend-item {
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.friend-item:hover {
+  background: #f5f5f5;
+}
+
+.friend-item.active {
+  background: #e3f2fd;
+}
+
+.friend-info {
+  margin-left: 10px;
+}
+
+.nickname {
+  font-size: 14px;
+  color: #333;
+}
+
+.status {
+  font-size: 12px;
+  color: #999;
+  margin-top: 3px;
+}
+
+.detail-container {
+  flex: 1;
+  padding: 20px;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.basic-info {
+  margin-left: 20px;
+}
+
+.basic-info h2 {
+  margin: 0 0 10px 0;
+}
+
+.info-section {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.info-item {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+.info-item .label {
+  width: 80px;
+  color: #666;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
 }
 </style>
