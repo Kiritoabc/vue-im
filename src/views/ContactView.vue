@@ -141,24 +141,45 @@
 
       <!-- 群聊列表 -->
       <div v-else class="list-content">
-        <!-- 置顶群聊 -->
-        <div class="list-group">
-          <div class="group-header" @click="toggleGroup('starred')">
-            <span class="arrow">{{ expandedGroups.starred ? '▼' : '▶' }}</span>
-            <span>置顶群聊</span>
-            <span class="count">0</span>
-          </div>
-          <div v-show="expandedGroups.starred" class="group-content">
-            <!-- 置顶群聊列表 -->
-          </div>
+        <!-- 添加创建群聊按钮 -->
+        <div class="create-group-btn">
+          <el-button type="primary" @click="showCreateGroupDialog" size="small" style="width: 90%; margin: 10px;">
+            <el-icon><Plus /></el-icon>创建群聊
+          </el-button>
         </div>
+
+        <!-- 创建群聊对话框 -->
+        <el-dialog v-model="showCreateGroup" title="创建群聊" width="400px">
+          <el-form :model="groupForm" :rules="groupRules" ref="groupFormRef">
+            <el-form-item label="群名称" prop="name">
+              <el-input v-model="groupForm.name" placeholder="请输入群名称"></el-input>
+            </el-form-item>
+            <el-form-item label="群头像">
+              <el-upload
+                  class="avatar-uploader"
+                  action="#"
+                  :show-file-list="false"
+                  :before-upload="beforeAvatarUpload"
+              >
+                <img v-if="groupForm.group_avatar" :src="groupForm.group_avatar" class="avatar-preview">
+                <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+              </el-upload>
+            </el-form-item>
+          </el-form>
+          <template #footer>
+            <div class="dialog-footer">
+              <el-button @click="showCreateGroup = false">取消</el-button>
+              <el-button type="primary" @click="createGroup">创建</el-button>
+            </div>
+          </template>
+        </el-dialog>
 
         <!-- 我创建的群 -->
         <div class="list-group">
           <div class="group-header" @click="toggleGroup('created')">
             <span class="arrow">{{ expandedGroups.created ? '▼' : '▶' }}</span>
             <span>我创建的群</span>
-            <span class="count">5</span>
+            <span class="count">{{ createdGroups.length }}</span>
           </div>
           <div v-show="expandedGroups.created" class="group-content">
             <div v-for="group in createdGroups" :key="group.id" class="group-item"
@@ -177,7 +198,7 @@
           <div class="group-header" @click="toggleGroup('managed')">
             <span class="arrow">{{ expandedGroups.managed ? '▼' : '▶' }}</span>
             <span>我管理的群</span>
-            <span class="count">3</span>
+            <span class="count">{{ managedGroups.length }}</span>
           </div>
           <div v-show="expandedGroups.managed" class="group-content">
             <div v-for="group in managedGroups" :key="group.id" class="group-item"
@@ -196,7 +217,7 @@
           <div class="group-header" @click="toggleGroup('joined')">
             <span class="arrow">{{ expandedGroups.joined ? '▼' : '▶' }}</span>
             <span>我加入的群</span>
-            <span class="count">67</span>
+            <span class="count">{{ joinedGroups.length }}</span>
           </div>
           <div v-show="expandedGroups.joined" class="group-content">
             <div v-for="group in joinedGroups" :key="group.id" class="group-item"
@@ -210,6 +231,7 @@
           </div>
         </div>
       </div>
+
     </div>
     <!-- 右侧详情 -->
     <div class="detail-container">
@@ -271,7 +293,7 @@
           <div class="info-section">
             <div class="section-header">
               <h3>群公告</h3>
-              <el-button v-if="isGroupAdmin" size="small" @click="editAnnouncement">编辑</el-button>
+<!--              <el-button v-if="isGroupAdmin" size="small" @click="editAnnouncement">编辑</el-button>-->
             </div>
             <div class="announcement">{{ selectedGroup.announcement || '暂无公告' }}</div>
           </div>
@@ -339,7 +361,8 @@ import NoticeList from '../components/NoticeList.vue'
 import { getToken } from '../utils/utils.js'
 import axios from 'axios'
 import { ElNotification } from 'element-plus' // 导入 ElNotification
-
+import { Plus } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const searchText = ref('')
@@ -357,6 +380,21 @@ const showSearchResults = ref(false)
 const searchResults = ref({ users: [], groups: [] }) // 初始化为包含空数组的对象
 const searchActiveTab = ref('all') // 使用 searchActiveTab 代替 activeTab
 const showAddFriend = ref(false)
+
+// 在已有的 ref 声明下添加
+const showCreateGroup = ref(false)
+const groupFormRef = ref(null)
+const groupForm = reactive({
+  name: '',
+  group_avatar: ''
+})
+
+const groupRules = {
+  name: [
+    { required: true, message: '请输入群名称', trigger: 'blur' },
+    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+  ]
+}
 
 
 // const friendId = ref('') // 用于存储输入的好友ID
@@ -453,69 +491,74 @@ const friends = [
 ]
 
 // 群聊列表
-const createdGroups = [
-  {
-    id: 1,
-    groupId: '1107576869',
-    name: '学习交流群',
-    avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
-    memberCount: 11,
-    category: '学习考试、高考',
-    announcement: '本着学习交流为目的，各位...',
-    description: '在群里，发现更多～',
-    stats: {
-      active: 27,
-      male: 82,
-      local: 73
-    },
-    previewMembers: [
-      { id: 1, name: '群主', avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png', role: '群主' },
-      { id: 2, name: '管理员1', avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', role: '管理员' }
-    ]
-  }
-]
+// const createdGroups = [
+//   {
+//     id: 1,
+//     groupId: '1107576869',
+//     name: '学习交流群',
+//     avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
+//     memberCount: 11,
+//     category: '学习考试、高考',
+//     announcement: '本着学习交流为目的，各位...',
+//     description: '在群里，发现更多～',
+//     stats: {
+//       active: 27,
+//       male: 82,
+//       local: 73
+//     },
+//     previewMembers: [
+//       { id: 1, name: '群主', avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png', role: '群主' },
+//       { id: 2, name: '管理员1', avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', role: '管理员' }
+//     ]
+//   }
+// ]
+//
+// const managedGroups = [
+//   {
+//     id: 2,
+//     groupId: '2233445566',
+//     name: '技术交流群',
+//     avatar: 'https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png',
+//     memberCount: 50,
+//     category: '技术交流',
+//     announcement: '技术交流群，禁止广告...',
+//     description: '专注技术交流',
+//     stats: {
+//       active: 45,
+//       male: 90,
+//       local: 60
+//     },
+//     previewMembers: [
+//       { id: 1, name: '群主', avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png', role: '群主' }
+//     ]
+//   }
+// ]
+//
+// const joinedGroups = [
+//   {
+//     id: 3,
+//     groupId: '9988776655',
+//     name: '游戏交流群',
+//     avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
+//     memberCount: 100,
+//     category: '游戏',
+//     announcement: '游戏交流，禁止外挂...',
+//     description: '一起来玩游戏',
+//     stats: {
+//       active: 85,
+//       male: 75,
+//       local: 50
+//     },
+//     previewMembers: [
+//       { id: 1, name: '群主', avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png', role: '群主' }
+//     ]
+//   }
+// ]
 
-const managedGroups = [
-  {
-    id: 2,
-    groupId: '2233445566',
-    name: '技术交流群',
-    avatar: 'https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png',
-    memberCount: 50,
-    category: '技术交流',
-    announcement: '技术交流群，禁止广告...',
-    description: '专注技术交流',
-    stats: {
-      active: 45,
-      male: 90,
-      local: 60
-    },
-    previewMembers: [
-      { id: 1, name: '群主', avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png', role: '群主' }
-    ]
-  }
-]
-
-const joinedGroups = [
-  {
-    id: 3,
-    groupId: '9988776655',
-    name: '游戏交流群',
-    avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
-    memberCount: 100,
-    category: '游戏',
-    announcement: '游戏交流，禁止外挂...',
-    description: '一起来玩游戏',
-    stats: {
-      active: 85,
-      male: 75,
-      local: 50
-    },
-    previewMembers: [
-      { id: 1, name: '群主', avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png', role: '群主' }
-    ]
-  }
-]
+// 在现有的 ref 声明中添加或修改
+const createdGroups = ref([])
+const managedGroups = ref([])
+const joinedGroups = ref([])
 
 const updateNotice = (id, action) => {
   const notice = notices.value.find(n => n.id === id)
@@ -527,11 +570,11 @@ const updateNotice = (id, action) => {
 
 
 // 是否为群管理员
-const isGroupAdmin = computed(() => {
-  if (!selectedGroup.value) return false
-  return createdGroups.some(g => g.id === selectedGroup.value.id) ||
-    managedGroups.some(g => g.id === selectedGroup.value.id)
-})
+// const isGroupAdmin = computed(() => {
+//   if (!selectedGroup.value) return false
+//   return createdGroups.some(g => g.id === selectedGroup.value.id) ||
+//     managedGroups.some(g => g.id === selectedGroup.value.id)
+// })
 
 // 切换分组展开/收起
 const toggleGroup = (groupId) => {
@@ -552,7 +595,9 @@ const selectFriend = (friend) => {
 
 // 选择群聊
 const selectGroup = (group) => {
+  console.log('selectGroup', group.name)
   selectedGroup.value = group
+  console.log('selectedGroup', selectedGroup.value)
   selectedFriend.value = null
 }
 
@@ -686,9 +731,96 @@ const showNotice = (type) => {
   noticeType.value = type
   showNoticeDialog.value = true
 }
+// 创建群聊
+// 添加以下方法
+const showCreateGroupDialog = () => {
+  showCreateGroup.value = true
+  groupForm.name = ''
+  groupForm.group_avatar = ''
+}
+
+const beforeAvatarUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt2M = file.size / 1024 / 1024 < 2
+
+  if (!isImage) {
+    ElMessage.error('上传头像图片只能是图片格式!')
+    return false
+  }
+  if (!isLt2M) {
+    ElMessage.error('上传头像图片大小不能超过 2MB!')
+    return false
+  }
+
+  // 创建临时URL用于预览
+  groupForm.group_avatar = URL.createObjectURL(file)
+  return false // 阻止自动上传
+}
+
+// 添加获取群聊列表的方法
+const fetchGroupList = async () => {
+  try {
+    const token = getToken()
+    const response = await axios.get('http://localhost:8080/im-server/groups/my_groups', {
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+    if (response.status === 200) {
+      // 假设后端返回的数据结构包含 created_groups, managed_groups, joined_groups
+      const { created_groups = [], managed_groups = [], joined_groups = [] } = response.data.data
+      // 更新群组数据
+      createdGroups.value = created_groups || []
+      managedGroups.value = managed_groups || []
+      joinedGroups.value = joined_groups || []
+      // 更新计数
+      expandedGroups.created = true
+      expandedGroups.managed = true
+      expandedGroups.joined = true
+    }
+  } catch (error) {
+    console.error('获取群聊列表失败:', error)
+    ElMessage.error('获取群聊列表失败')
+  }
+}
+
+const createGroup = async () => {
+  if (!groupFormRef.value) return
+
+  await groupFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const token = getToken()
+        const response = await axios.post('http://localhost:8080/im-server/groups', {
+          name: groupForm.name,
+          group_avatar: groupForm.group_avatar
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'token': token
+          }
+        })
+
+        if (response.status === 200) {
+          ElMessage.success('群聊创建成功')
+          showCreateGroup.value = false
+          // 可以在这里刷新群聊列表
+          await fetchGroupList() // 刷新群聊列表
+        } else {
+          ElMessage.error(response.data.msg || '创建失败')
+        }
+      } catch (error) {
+        console.error('创建群聊失败:', error)
+        ElMessage.error('创建群聊失败，请稍后重试')
+      }
+    }
+  })
+}
 
 onMounted(() => {
   fetchFriendsList()
+  fetchGroupList() // 添加这一行
 })
 </script>
 
@@ -1183,5 +1315,42 @@ onMounted(() => {
 .action-buttons {
   display: flex;
   gap: 10px;
+}
+
+.create-group-btn {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.avatar-uploader {
+  display: flex;
+  justify-content: center;
+}
+
+.avatar-uploader .avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 100px;
+  height: 100px;
+  text-align: center;
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-uploader .avatar-preview {
+  width: 100px;
+  height: 100px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.avatar-uploader .el-upload:hover {
+  border-color: #409EFF;
 }
 </style>

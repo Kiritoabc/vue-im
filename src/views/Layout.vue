@@ -111,15 +111,15 @@ const userInfo = computed(() => store.state.userInfo)
 const menuItems = [
   { label: '消息', path: '/chat', badge: 3 },
   { label: '联系人', path: '/contact', badge: 1 },
-  { label: 'AI', path: '/ai' },
+  { label: 'AI助手', path: '/ai' },
 ]
 
 const handleSaveUserInfo = async (updatedInfo) => {
   console.log('更新的用户信息：', updatedInfo)
-  
+
   // 获取存储在浏览器中的 token
   const token = getToken()
-  
+
   try {
     // 发送更新用户信息的请求
     const response = await axios.post('http://localhost:8080/im-server/user/update', {
@@ -134,14 +134,14 @@ const handleSaveUserInfo = async (updatedInfo) => {
         'Content-Type': 'application/json'
       }
     })
-    
+
     // 更新成功后，查询最新的用户信息
     const userInfoResponse = await axios.get('http://localhost:8080/im-server/user/userInfo', {
       headers: {
         'token': token
       }
     })
-    
+
     // 更新 Vuex store 中的用户信息
     console.log('更新后查询的用户信息', userInfoResponse.data.data)
     await store.dispatch('updateUserInfo', userInfoResponse.data.data)
