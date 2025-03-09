@@ -8,10 +8,15 @@
         <div class="search-bar">
           <el-input v-model="searchText" placeholder="搜索" />
         </div>
-        <!-- 可选择的群聊和个人聊天 -->
+        <!-- 修改聊天项的点击事件 -->
         <div class="chat-items">
-          <div v-for="chat in chatList" :key="chat.id" :class="['chat-item', { active: chat.id === currentChatId }]"
-               @click="$router.push(`/chat/${chat.type}/${chat.id}`)">
+          <div v-for="chat in chatList"
+               :key="`${chat.type}-${chat.id}`"
+               :class="['chat-item', {
+           active: currentChatId === chat.id &&
+                  route.path.includes(chat.type)
+         }]"
+               @click="selectChat(chat)">
             <el-avatar :src="chat.avatar" />
             <div class="chat-info">
               <div class="chat-name">{{ chat.name }}</div>
@@ -25,7 +30,7 @@
       <div class="chat-content">
         <!-- 左侧群最后的消息和私聊的最后消息 -->
         <div class="chat-header">
-          <h2>{{ currentChat?.name }} ({{ currentChat?.memberCount || 36 }})</h2>
+          <h2>{{ currentChat?.name }} </h2>
         </div>
         <!-- 消息展示页面 -->
         <div class="message-area">
@@ -51,7 +56,6 @@
       </div>
 
     </div>
-
 
     <!-- 添加发送消息成员弹窗 -->
     <el-dialog v-model="showSenderDialog" title="成员信息" width="400px" :show-close="true" :close-on-click-modal="true">
@@ -104,14 +108,16 @@
       </div>
     </el-dialog>
 
-
     <!-- 右侧成员列表 -->
-    <div class="member-list">
+    <div class="member-list" v-if="isGroupChat">
       <div class="member-header">
-        <h3>群成员 {{ currentChat?.memberCount || 36 }}</h3>
+        <h3>群成员 {{ groupMembers.length }}</h3>
       </div>
       <div class="members">
-        <div v-for="member in mockMembers" :key="member.id" class="member-item" @click="showMemberInfo(member)">
+        <div v-for="member in groupMembers"
+             :key="member.id"
+             class="member-item"
+             @click="showMemberInfo(member)">
           <el-avatar :src="member.avatar" />
           <span>{{ member.name }}</span>
         </div>
@@ -189,8 +195,10 @@ const chatList = ref([])
 
 // 从 store 中获取用户信息
 const userInfo = computed(() => store.state.userInfo)
-
-console.log(userInfo.value.id)
+// 添加一个计算属性来判断是否为群聊
+const isGroupChat = computed(() => {
+  return route.path.includes('group')
+})
 
 let ws = null
 
@@ -204,7 +212,6 @@ const fetchChatList = async () => {
         'token': token
       }
     })
-
     // 转换后台数据格式以匹配前端需求
     chatList.value = response.data.data.map(chat => ({
       id: chat.id,
@@ -239,14 +246,27 @@ const addFriend = (id) => {
 
 // 监听路由变化
 watch(
-  () => route.params.id,
-  (newId) => {
-    if (newId) {
-      currentChatId.value = parseInt(newId)
-      console.log('当前聊天ID:', currentChatId.value)
-    }
-  },
-  { immediate: true }
+    () => route.params,
+    (newParams) => {
+      if (newParams.id) {
+        currentChatId.value = parseInt(newParams.id)
+        // 从路由中获取类型（group 或 personal）
+        const chatType = route.path.includes('group') ? 'group' : 'personal'
+        console.log('当前聊天ID:', currentChatId.value, '类型:', chatType)
+        // 更新当前聊天
+        const chat = chatList.value.find(
+            chat => chat.id === currentChatId.value && chat.type === chatType
+        )
+        if (chat) {
+          currentChat.value = chat
+          // 如果是群聊，获取群成员列表
+          if (chatType === 'group') {
+            fetchGroupMembers(currentChatId.value)
+          }
+        }
+      }
+    },
+    { immediate: true, deep: true }
 )
 
 // 模拟数据
@@ -256,111 +276,16 @@ const mockUser = {
   avatar: userInfo.value.avatar
 }
 
-// mock聊天数据
-// const mockChats = [
-//   {
-//     id: 1,
-//     name: '乐园养老院',
-//     avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s',
-//     lastMessage: '大家晚上好啊~',
-//     type: 'group',
-//     messages: [
-//       {
-//         id: 1,
-//         content: '如此甚好',
-//         senderId: 2,
-//         senderName: '钟离',
-//         avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRGxn2g1MNYiWj74sDq3vLA96CCv8uc66CFcQ&s'
-//       },
-//       {
-//         id: 2,
-//         content: '钟离先生你好嗷~',
-//         senderId: 1,
-//         senderName: '菠萝',
-//         avatar: mockUser.avatar
-//       },
-//       {
-//         id: 3,
-//         content: '小菠萝你也好',
-//         senderId: 2,
-//         senderName: '可莉',
-//         avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRGxn2g1MNYiWj74sDq3vLA96CCv8uc66CFcQ&s'
-//       },
-//       {
-//         id: 4,
-//         content: '可莉，你也晚上好哦',
-//         senderId: 1,
-//         senderName: '菠萝',
-//         avatar: mockUser.avatar
-//       },
-//     ]
-//   },
-//   {
-//     id: 2,
-//     name: '技术交流群',
-//     avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s',
-//     lastMessage: '有人在线吗？',
-//     type: 'group',
-//     messages: [
-//       {
-//         id: 1,
-//         content: '大家好啊！',
-//         senderId: 2,
-//         senderName: '可莉',
-//         avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s'
-//       },
-//       {
-//         id: 2,
-//         content: '你好！',
-//         senderId: 1,
-//         senderName: '菠萝',
-//         avatar: mockUser.avatar
-//       },
-//       {
-//         id: 3,
-//         content: '菠萝哥哥晚上好哦',
-//         senderId: 2,
-//         senderName: '可莉',
-//         avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s'
-//       },
-//       {
-//         id: 4,
-//         content: '可莉，你也晚上好哦',
-//         senderId: 1,
-//         senderName: '菠萝',
-//         avatar: mockUser.avatar
-//       },
-//     ]
-//   },
-//   {
-//     id: 3,
-//     name: '可莉',
-//     avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s',
-//     lastMessage: '你好啊！',
-//     type: 'personal',
-//     messages: [
-//       {
-//         id: 1,
-//         content: '你好啊！',
-//         senderId: 2,
-//         senderName: '可莉',
-//         avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1dyZLmNMbkVdvNVtn5AOVah151P0dVLMC8Q&s'
-//       },
-//     ]
-//   }
-// ]
-
 // 后台数据
+// 将 mockMembers 改为响应式数据
+const groupMembers = ref([])
 
-const mockMembers = [
-  { id: 1, name: '派蒙', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR5re36F5Y0vJ5iUVM_Sk3swdJ97yt9OZ3xBQ&s' },
-  { id: 2, name: '可莉', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRGxn2g1MNYiWj74sDq3vLA96CCv8uc66CFcQ&s' },
-  { id: 3, name: '万叶', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS0t7r5dj987A6mOt3D7_JQOgW-48DqsdT1Ng&s' }
-]
-
-// 更新当前聊天的计算属性
+// 修改当前聊天的计算属性
 const currentChat = computed(() => {
-  return chatList.value.find(chat => chat.id === currentChatId.value)
+  const chatType = route.path.includes('group') ? 'group' : 'personal'
+  return chatList.value.find(
+      chat => chat.id === currentChatId.value && chat.type === chatType
+  )
 })
 
 // 当前消息列表
@@ -388,7 +313,46 @@ const sendPrivateMessage = (id) => {
   showSenderDialog.value = false
 }
 
-// 创建 WebSocket 连接
+// 添加选择聊天的方法
+const selectChat = (chat) => {
+  router.push(`/chat/${chat.type}/${chat.id}`)
+}
+
+// 添加获取群成员的方法
+const fetchGroupMembers = async (groupId) => {
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.get(`http://localhost:8080/im-server/groups/members`, {
+      params: {
+        group_id: groupId
+      },
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+
+    if (response.status === 200) {
+      // 转换数据格式
+      groupMembers.value = response.data.data.map(member => ({
+        id: member.id,
+        name: member.username,
+        avatar: member.avatar_url,
+        email: member.email,
+        phoneNumber: member.phone_number,
+        bio: member.bio,
+        gender: member.gender,
+        city: member.city,
+        joinTime: member.created_at
+      }))
+    }
+  } catch (error) {
+    console.error('获取群成员失败:', error)
+    ElMessage.error('获取群成员失败')
+  }
+}
+
+ // 创建 WebSocket 连接
 const connectWebSocket = () => {
   // const token = localStorage.getItem('token')
   ws = new WebSocket(`ws://localhost:8080/im-server/private/chat`)
@@ -491,6 +455,7 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   border-right: 1px solid #dcdfe6;
+  width: v-bind(isGroupChat ? 'calc(100% - 200px)' : '100%');
 }
 
 .chat-list {
