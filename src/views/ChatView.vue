@@ -110,18 +110,39 @@
 
     <!-- 右侧成员列表 -->
     <div class="member-list" v-if="isGroupChat">
-      <div class="member-header">
-        <h3>群成员 {{ groupMembers.length }}</h3>
-      </div>
-      <div class="members">
-        <div v-for="member in groupMembers"
-             :key="member.id"
-             class="member-item"
-             @click="showMemberInfo(member)">
-          <el-avatar :src="member.avatar" />
-          <span>{{ member.name }}</span>
+
+      <!-- 群公告部分 -->
+      <div class="group-announcement">
+        <div class="section-header">
+          <h3>群公告</h3>
+          <el-button v-if="isGroupAdmin" type="text" @click="editAnnouncement">
+            <el-icon><Edit /></el-icon>
+          </el-button>
+        </div>
+        <div class="announcement-content">
+          {{ currentGroup?.announcement || '暂无公告' }}
         </div>
       </div>
+
+      <!-- 群成员部分 -->
+      <div class="group-members">
+        <div class="section-header">
+          <h3>群成员 ({{ groupMembers.length }})</h3>
+          <el-button type="primary" size="small" @click="showInviteDialog">
+            <el-icon><Plus /></el-icon>邀请好友
+          </el-button>
+        </div>
+        <div class="members-list">
+          <div v-for="member in groupMembers"
+               :key="member.id"
+               class="member-item"
+               @click="showMemberInfo(member)">
+            <el-avatar :src="member.avatar" />
+            <span class="member-name">{{ member.name }}</span>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- 添加成员信息弹窗 -->
@@ -168,6 +189,44 @@
       </div>
     </el-dialog>
 
+    <!-- 添加邀请好友对话框 -->
+    <el-dialog v-model="showInvite" title="邀请好友加入群聊" width="500px">
+      <div class="invite-dialog">
+        <el-input
+            v-model="searchFriend"
+            placeholder="搜索好友"
+            prefix-icon="Search"
+            clearable
+            @input="filterFriends"
+        />
+        <div class="friends-list">
+          <el-checkbox-group v-model="selectedFriends">
+            <div v-for="friend in filteredFriends"
+                 :key="friend.id"
+                 class="friend-item">
+              <el-checkbox :label="friend.id">
+                <div class="friend-info">
+                  <el-avatar :size="30" :src="friend.avatar" />
+                  <div class="friend-detail">
+                    <span class="friend-name">{{ friend.name }}</span>
+                    <span class="friend-status" :class="{ 'online': friend.status === '在线' }">
+                  {{ friend.status }}
+                </span>
+                  </div>
+                </div>
+              </el-checkbox>
+            </div>
+          </el-checkbox-group>
+        </div>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showInvite = false">取消</el-button>
+          <el-button type="primary" @click="inviteFriends">邀请</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 <script setup>
@@ -176,6 +235,14 @@ import { useRouter, useRoute } from 'vue-router'
 import axios from "axios";
 import {ElMessage} from "element-plus";
 import store from "../store/index.js";
+import { Edit, Plus, Search } from '@element-plus/icons-vue'
+
+// 添加新的响应式变量
+const showInvite = ref(false)
+const searchFriend = ref('')
+const selectedFriends = ref([])
+const filteredFriends = ref([])
+const currentGroup = ref(null)
 
 const router = useRouter()
 const route = useRoute()
@@ -202,6 +269,56 @@ const isGroupChat = computed(() => {
 
 let ws = null
 
+// 显示邀请对话框
+const showInviteDialog = () => {
+  showInvite.value = true
+  searchFriend.value = ''
+  selectedFriends.value = []
+  // 获取最新的好友列表
+  fetchFriendsList().then(() => {
+    filterFriends()
+  })
+}
+
+// 修改过滤好友的方法
+const filterFriends = () => {
+  if (!searchFriend.value) {
+    filteredFriends.value = friends.value
+  } else {
+    filteredFriends.value = friends.value.filter(friend =>
+        friend.name.toLowerCase().includes(searchFriend.value.toLowerCase())
+    )
+  }
+}
+
+// 邀请好友
+const inviteFriends = async () => {
+  if (selectedFriends.value.length === 0) {
+    ElMessage.warning('请选择要邀请的好友')
+    return
+  }
+
+  try {
+    const token = localStorage.getItem('token')
+    await axios.post('http://localhost:8080/im-server/groups/invite', {
+      group_id: currentChatId.value,
+      friend_ids: selectedFriends.value
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+
+    ElMessage.success('邀请发送成功')
+    showInvite.value = false
+  } catch (error) {
+    console.error('邀请好友失败:', error)
+    ElMessage.error('邀请失败，请稍后重试')
+  }
+}
+
+
 // 获取聊天列表数据
 const fetchChatList = async () => {
   try {
@@ -227,11 +344,40 @@ const fetchChatList = async () => {
   }
 }
 
-// 模拟好友数据
-const friends = ref([
-  { id: 1, name: '小明', avatar: 'https://example.com/avatar1.jpg', status: '在线' },
-  { id: 2, name: '小红', avatar: 'https://example.com/avatar2.jpg', status: '离线' },
-])
+// 将原来的模拟数据改为响应式空数组
+const friends = ref([])
+
+// 添加获取好友列表的方法
+const fetchFriendsList = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.get('http://localhost:8080/im-server/friends/all', {
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+
+    if (response.status === 200) {
+      // 转换数据格式以匹配前端需求
+      friends.value = response.data.data.map(friend => ({
+        id: friend.id,
+        name: friend.name,
+        avatar: friend.avatar,
+        status: friend.status ? friend.status : '离线',
+        email: friend.email,
+        phoneNumber: friend.phone_number,
+        bio: friend.bio,
+        gender: friend.gender,
+        city: friend.city
+      }))
+    }
+  } catch (error) {
+    console.error('获取好友列表失败:', error)
+    ElMessage.error('获取好友列表失败')
+  }
+}
+
 
 // 判断是否是好友
 const isFriend = (id) => {
@@ -428,6 +574,7 @@ const sendMessage = async () => {
 onMounted(() => {
   fetchChatList()
   connectWebSocket()
+  fetchFriendsList() // 添加这一行
 })
 
 // 在组件卸载时关闭连接
@@ -451,12 +598,7 @@ onUnmounted(() => {
   border-radius: 8px;
 }
 
-.chat-main {
-  flex: 1;
-  display: flex;
-  border-right: 1px solid #dcdfe6;
-  width: v-bind(isGroupChat ? 'calc(100% - 200px)' : '100%');
-}
+
 
 .chat-list {
   width: 250px;
@@ -686,5 +828,121 @@ onUnmounted(() => {
   font-size: 18px;
   font-weight: bold;
 }
+/* 修改成员列表容器样式 */
+.member-list {
+  width: 200px;
+  background-color: #fff;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* 群公告部分样式 */
+.group-announcement {
+  height: 30%;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+.announcement-content {
+  padding: 10px;
+  background-color: #f8f8f8;
+  border-radius: 4px;
+  height: calc(100% - 40px);
+  overflow-y: auto;
+  font-size: 14px;
+  color: #666;
+}
+
+/* 群成员部分样式 */
+.group-members {
+  height: 70%;
+  display: flex;
+  flex-direction: column;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.members-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* 邀请对话框样式 */
+.friend-info {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  width: 100%;
+}
+
+.friend-detail {
+  display: flex;
+  flex-direction: column;
+  margin-left: 10px;
+}
+
+.friend-name {
+  font-size: 14px;
+  color: #333;
+}
+
+.friend-status {
+  font-size: 12px;
+  color: #999;
+}
+
+.friend-status.online {
+  color: #67C23A;
+}
+
+.friend-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.friend-item:last-child {
+  border-bottom: none;
+}
+
+:deep(.el-checkbox) {
+  width: 100%;
+  margin-right: 0;
+}
+
+:deep(.el-checkbox__label) {
+  width: 100%;
+}
+
+.friends-list {
+  margin-top: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0 10px;
+}
+
+.invite-dialog {
+  padding: 0 20px;
+}
+
+/* 修复之前的样式错误 */
+.chat-main {
+  flex: 1;
+  display: flex;
+  border-right: 1px solid #dcdfe6;
+  width: v-bind('isGroupChat ? "calc(100% - 200px)" : "100%"');
+}
+
 </style>
-12
