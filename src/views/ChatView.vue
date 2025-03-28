@@ -38,21 +38,29 @@
             :class="['message', { 'message-self': msg.senderId === mockUser.id }]" @click="showSenderInfo(msg)">
             <el-avatar :src="msg.avatar" />
             <div class="message-content">
-              <div class="message-sender">{{ msg.senderName }}</div>
+              <div class="message-sender">{{ msg.senderName }}{{ formatTime(msg.timestamp)}}</div>
               <div class="message-text">{{ msg.content }}</div>
             </div>
           </div>
         </div>
-        <!-- 发送页面 -->
+        <!-- 修改输入区域样式 -->
         <div class="chat-input">
-          <div class="toolbar">
-            <el-button>表情</el-button>
-            <el-button>图片</el-button>
-            <el-button>文件</el-button>
-            <el-button type="primary" @click="showAIHelper = true">AI助手</el-button>
+          <div class="input-wrapper">
+            <el-input
+                v-model="messageText"
+                type="text"
+                placeholder="输入消息..."
+                :suffix-icon="SmileFilled"
+                class="message-input"
+            >
+              <template #prefix>
+                <el-icon><Plus /></el-icon>
+              </template>
+            </el-input>
+            <el-button type="primary" circle @click="sendMessage">
+              <el-icon><Position /></el-icon>
+            </el-button>
           </div>
-          <el-input v-model="messageText" type="textarea" :rows="3" placeholder="请输入消息..." />
-          <el-button type="primary" @click="sendMessage">发送</el-button>
         </div>
       </div>
 
@@ -228,35 +236,95 @@
       </template>
     </el-dialog>
 
-    <!-- AI助手抽屉 -->
-    <el-drawer
-      title="AI助手"
-      v-model="showAIHelper"
-      :visible.sync="showAIHelper"
-      size="400px"
-      direction="rtl"
-    >
-      <div>
-        <h3>欢迎使用AI助手！</h3>
-        <p>您可以在这里总结群友聊天内容和查询相关资料。</p>
-        <el-input v-model="aiQuery" placeholder="输入您的问题..." />
-        <el-button type="primary" @click="queryAI">查询</el-button>
-        <div v-if="aiResponse">
-          <h4>AI助手回复：</h4>
-          <p>{{ aiResponse }}</p>
+    <!-- 添加浮动AI助手按钮和聊天框 -->
+    <div
+      class="ai-chat-widget"
+      :class="{ 'ai-chat-expanded': aiChatExpanded }"
+      ref="aiChatWidget"
+      :style="{
+        left: widgetLeft + 'px',
+        top: widgetTop + 'px',
+        transition: isDragging ? 'none' : 'all 0.3s'
+      }"
+      @mousedown.prevent="startDrag">
+      <div class="drag-handle" @mousedown.prevent="startDrag">
+        <!-- 拖动把手 -->
+        <el-button
+            v-if="!aiChatExpanded"
+            class="ai-chat-button"
+            type="primary"
+            circle
+            @click="toggleAIChat">
+          <el-icon><ChatDotRound /></el-icon>
+        </el-button>
+      </div>
+      <div v-if="aiChatExpanded" class="ai-chat-container">
+        <div class="ai-chat-header">
+          <span>智能助手</span>
+          <el-button type="text" @click="toggleAIChat">
+            <el-icon><Close /></el-icon>
+          </el-button>
+        </div>
+
+        <div class="ai-chat-messages" ref="aiChatMessages">
+          <div v-for="(msg, index) in aiMessages" :key="index"
+               :class="['ai-message', { 'ai-message-bot': msg.sender === 'bot', 'ai-message-user': msg.sender === 'user' }]">
+            <div v-if="msg.sender === 'bot'" class="ai-avatar">
+              <el-avatar :size="30" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" />
+            </div>
+            <div class="ai-message-content">
+              <template v-if="msg.type === 'text'">{{ msg.content }}</template>
+              <template v-else-if="msg.type === 'options'">
+                <div class="ai-options">
+                  <el-button
+                      v-for="option in msg.options"
+                      :key="option.value"
+                      size="small"
+                      @click="selectOption(option)">
+                    {{ option.label }}
+                  </el-button>
+                </div>
+              </template>
+            </div>
+          </div>
+          <div v-if="aiTyping" class="ai-message ai-message-bot ai-typing">
+            <div class="ai-avatar">
+              <el-avatar :size="30" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" />
+            </div>
+            <div class="ai-typing-indicator">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ai-chat-input">
+          <el-input
+              v-model="aiInputMessage"
+              placeholder="请输入问题..."
+              :disabled="aiTyping"
+              @keyup.enter="sendAIMessage" />
+          <el-button type="primary" :disabled="aiTyping" @click="sendAIMessage">发送</el-button>
         </div>
       </div>
-    </el-drawer>
+    </div>
 
   </div>
 </template>
 <script setup>
-import {ref, watch, computed, onMounted, onUnmounted} from 'vue'
+import {ref, watch, computed, onMounted, onUnmounted, nextTick} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from "axios";
 import {ElMessage} from "element-plus";
 import store from "../store/index.js";
-import { Edit, Plus, Search } from '@element-plus/icons-vue'
+import {Edit, Plus, Position, Search} from '@element-plus/icons-vue'
+import { Close, ChatDotRound } from '@element-plus/icons-vue'
+
+const formatTime = (timestamp) => {
+  const date = new Date(timestamp)
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
+}
 
 // 添加新的响应式变量
 const showInvite = ref(false)
@@ -282,22 +350,174 @@ const selectedSender = ref(null)
 const chatList = ref([])
 
 // AI助手抽屉
-const showAIHelper = ref(false) // 控制AI助手抽屉的显示
-const aiQuery = ref('') // AI助手查询输入
-const aiResponse = ref('') // AI助手的回复
+// AI聊天组件相关变量
+const aiChatExpanded = ref(false)
+const aiMessages = ref([
+  {
+    sender: 'bot',
+    type: 'text',
+    content: '您好，我是AI助手，有什么可以帮您的吗？'
+  },
+  {
+    sender: 'bot',
+    type: 'options',
+    options: [
+      { label: '搜索支持文章', value: 'search' },
+      { label: '提交支持工单', value: 'ticket' }
+    ]
+  }
+])
+const aiInputMessage = ref('')
+const aiTyping = ref(false)
+const aiChatMessages = ref(null)
 
-// 查询AI助手
-const queryAI = async () => {
-  // 这里可以调用后端API来获取AI助手的回复
-  // 假设我们有一个API可以查询AI助手
-  try {
-    const response = await axios.post('http://localhost:8080/im-server/ai/query', { query: aiQuery.value })
-    aiResponse.value = response.data.answer // 假设返回的答案在answer字段中
-  } catch (error) {
-    console.error('查询AI助手失败:', error)
-    ElMessage.error('查询失败')
+// 新增拖动相关响应式变量
+const aiChatWidget = ref(null)
+const isDragging = ref(false)
+const widgetLeft = ref(20)
+const widgetTop = ref(20)
+let startX = 0
+let startY = 0
+let offsetX = 0
+let offsetY = 0
+
+// 修改拖动逻辑处理
+const startDrag = (e) => {
+  if (aiChatExpanded.value) {
+    // 展开状态时允许整个容器拖动
+    const rect = aiChatWidget.value.getBoundingClientRect()
+    offsetX = e.clientX - rect.left
+    offsetY = e.clientY - rect.top
+  } else {
+    // 收起状态时保持原逻辑
+    offsetX = e.clientX - aiChatWidget.value.getBoundingClientRect().left
+    offsetY = e.clientY - aiChatWidget.value.getBoundingClientRect().top
+  }
+
+  isDragging.value = true
+  startX = e.clientX
+  startY = e.clientY
+
+  document.addEventListener('mousemove', handleDrag)
+  document.addEventListener('mouseup', stopDrag)
+}
+
+const handleDrag = (e) => {
+  if (!isDragging.value) return
+  widgetLeft.value = e.clientX - offsetX
+  widgetTop.value = e.clientY - offsetY
+}
+
+const stopDrag = () => {
+  isDragging.value = false
+  document.removeEventListener('mousemove', handleDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
+
+// 切换AI聊天框显示状态
+const toggleAIChat = () => {
+  aiChatExpanded.value = !aiChatExpanded.value
+  if (aiChatExpanded.value) {
+    nextTick(() => {
+      scrollToBottom()
+    })
   }
 }
+
+// 发送消息给AI
+const sendAIMessage = async () => {
+  if (!aiInputMessage.value.trim() || aiTyping.value) return
+
+  // 添加用户消息
+  aiMessages.value.push({
+    sender: 'user',
+    type: 'text',
+    content: aiInputMessage.value
+  })
+
+  const userMessage = aiInputMessage.value
+  aiInputMessage.value = ''
+
+  // 滚动到底部
+  await nextTick()
+  scrollToBottom()
+
+  // 显示机器人正在输入
+  aiTyping.value = true
+
+  // 模拟API调用延迟
+  setTimeout(async () => {
+    // 添加机器人回复
+    aiMessages.value.push({
+      sender: 'bot',
+      type: 'text',
+      content: `我收到了您的问题: "${userMessage}"。正在为您处理...`
+    })
+
+    aiTyping.value = false
+
+    // 滚动到底部
+    await nextTick()
+    scrollToBottom()
+  }, 1500)
+}
+
+// 选择预设选项
+const selectOption = async (option) => {
+  // 添加用户选择的选项作为消息
+  aiMessages.value.push({
+    sender: 'user',
+    type: 'text',
+    content: option.label
+  })
+
+  // 滚动到底部
+  await nextTick()
+  scrollToBottom()
+
+  // 显示机器人正在输入
+  aiTyping.value = true
+
+  // 模拟API调用延迟
+  setTimeout(async () => {
+    let response = ''
+
+    if (option.value === 'search') {
+      response = '您可以在下方输入关键词，我会为您搜索相关支持文章。'
+    } else if (option.value === 'ticket') {
+      response = '请描述您遇到的问题，我们的客服人员会尽快处理您的工单。'
+    }
+
+    // 添加机器人回复
+    aiMessages.value.push({
+      sender: 'bot',
+      type: 'text',
+      content: response
+    })
+
+    aiTyping.value = false
+
+    // 滚动到底部
+    await nextTick()
+    scrollToBottom()
+  }, 1000)
+}
+
+// 滚动到底部
+const scrollToBottom = () => {
+  if (aiChatMessages.value) {
+    aiChatMessages.value.scrollTop = aiChatMessages.value.scrollHeight
+  }
+}
+
+// 监听AI聊天框展开状态
+watch(aiChatExpanded, (newVal) => {
+  if (newVal) {
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = ''
+  }
+})
 
 // 从 store 中获取用户信息
 const userInfo = computed(() => store.state.userInfo)
@@ -627,6 +847,12 @@ onMounted(() => {
   fetchChatList()
   connectWebSocket()
   fetchFriendsList() // 添加这一行
+  // 获取窗口尺寸
+  const { innerWidth, innerHeight } = window
+  // 设置初始位置在右下角（右侧20px，底部120px）
+  widgetLeft.value = innerWidth - 320  // 假设浮窗宽度320px
+  widgetTop.value = innerHeight - 200   // 距离底部200px
+
 })
 
 // 在组件卸载时关闭连接
@@ -650,35 +876,8 @@ onUnmounted(() => {
   border-radius: 8px;
 }
 
-
-
-.chat-list {
-  width: 250px;
-  background-color: #fff;
-  border-right: 1px solid #dcdfe6;
-}
-
 .search-bar {
   padding: 10px;
-}
-
-.chat-items {
-  overflow-y: auto;
-}
-
-.chat-item {
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.chat-item.active {
-  background-color: #e6f1fc;
-}
-
-.chat-info {
-  margin-left: 10px;
 }
 
 .chat-content {
@@ -690,12 +889,6 @@ onUnmounted(() => {
 .chat-header {
   padding: 10px 20px;
   border-bottom: 1px solid #dcdfe6;
-}
-
-.message-area {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
 }
 
 .message {
@@ -710,7 +903,7 @@ onUnmounted(() => {
 
 .message-content {
   margin: 0 10px;
-  max-width: 60%;
+  max-width: 80%;
 }
 
 .message-self .message-content {
@@ -728,11 +921,6 @@ onUnmounted(() => {
   padding: 10px;
   border-radius: 4px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.message-self .message-text {
-  background-color: #409EFF;
-  color: #fff;
 }
 
 .chat-input {
@@ -995,6 +1183,362 @@ onUnmounted(() => {
   display: flex;
   border-right: 1px solid #dcdfe6;
   width: v-bind('isGroupChat ? "calc(100% - 200px)" : "100%"');
+}
+
+/* AI聊天组件样式 */
+.ai-chat-widget {
+  position: fixed;
+  right: 32px;
+  bottom: 108px;
+  z-index: 1000;
+}
+
+.ai-chat-button {
+  width: 50px;
+  height: 50px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+
+.ai-chat-header {
+  padding: 12px 16px;
+  background-color: #4468e3;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-chat-header .el-button {
+  color: white;
+  font-size: 16px;
+}
+
+.ai-chat-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  background-color: #f5f7fa;
+}
+
+.ai-message {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.ai-message-bot {
+  justify-content: flex-start;
+}
+
+.ai-message-user {
+  justify-content: flex-end;
+  flex-direction: row-reverse;
+}
+
+.ai-avatar {
+  margin-right: 8px;
+}
+
+.ai-message-content {
+  padding: 10px 12px;
+  border-radius: 8px;
+  max-width: 80%;
+  word-break: break-word;
+}
+
+.ai-message-bot .ai-message-content {
+  background-color: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.ai-message-user .ai-message-content {
+  background-color: #4468e3;
+  color: white;
+}
+
+.ai-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-chat-input {
+  padding: 12px;
+  display: flex;
+  border-top: 1px solid #ebeef5;
+}
+
+.ai-chat-input .el-input {
+  margin-right: 8px;
+}
+
+/* 打字指示器动画 */
+.ai-typing-indicator {
+  display: flex;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 8px;
+}
+
+.ai-typing-indicator span {
+  height: 8px;
+  width: 8px;
+  background: #4468e3;
+  border-radius: 50%;
+  display: block;
+  margin: 0 2px;
+  opacity: 0.4;
+}
+
+.ai-typing-indicator span:nth-child(1) {
+  animation: typing 1s infinite 0s;
+}
+
+.ai-typing-indicator span:nth-child(2) {
+  animation: typing 1s infinite 0.2s;
+}
+
+.ai-typing-indicator span:nth-child(3) {
+  animation: typing 1s infinite 0.4s;
+}
+
+@keyframes typing {
+  0% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+  100% { opacity: 0.4; transform: scale(1); }
+}
+
+/* 消息区域样式 */
+.message-area {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  background-color: #f5f7fb;
+}
+
+.message {
+  display: flex;
+  margin-bottom: 20px;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+
+.message-text {
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: #1e1e1e;
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.message-self .message-text {
+  background: #dcf8c6;
+  color: #1e1e1e;
+}
+
+.message-time {
+  font-size: 11px;
+  color: #8696a0;
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* 输入区域样式 */
+.chat-input {
+  padding: 16px 24px; /* 增加上下内边距 */
+  background: white;
+  border-top: 1px solid #e9edef;
+}
+
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.message-input {
+  flex: 1;
+}
+
+:deep(.el-input__wrapper) {
+  padding: 12px 16px; /* 增加输入框内部空间 */
+  border-radius: 24px;
+  background: #f0f2f5;
+  height: 48px; /* 增加输入框高度 */
+}
+
+:deep(.el-input__inner) {
+  font-size: 15px;
+  color: #1e1e1e; /* 修改字体颜色为黑色 */
+}
+
+:deep(.el-input__inner::placeholder) {
+  color: #666; /* 修改占位符文字颜色,让它更清晰 */
+}
+
+/* 修改发送按钮大小 */
+:deep(.el-button.is-circle) {
+  width: 48px; /* 增加按钮尺寸 */
+  height: 48px;
+}
+
+/* 修改顶部输入框样式 */
+.search-bar {
+  padding: 12px 16px;
+}
+
+.search-bar :deep(.el-input__wrapper) {
+  height: 40px;
+}
+
+.search-bar :deep(.el-input__inner) {
+  color: #1e1e1e;
+}
+
+.search-bar :deep(.el-input__inner::placeholder) {
+  color: #666;
+}
+
+/* 聊天列表样式 */
+.chat-list {
+  width: 250px;
+  background-color: #fff;
+  border-right: 1px solid #dcdfe6;
+  border-right: 1px solid #e9edef;
+}
+
+.chat-items {
+  overflow-y: auto;
+}
+
+.chat-item {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.chat-item:hover {
+  background-color: #f5f6f6;
+}
+
+.chat-item.active {
+  background-color: #bcd0ef;
+}
+
+.chat-info {
+  margin-left: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-name {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #111b21;
+}
+
+.chat-preview {
+  font-size: 14px;
+  color: #667781;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-header h1 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+  color: #111b21;
+  padding: 26px 16px;
+}
+
+/* 修改输入框样式 */
+.chat-input {
+  padding: 16px 24px; /* 增加上下内边距 */
+  background: white;
+  border-top: 1px solid #e9edef;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.message-input {
+  flex: 1;
+}
+
+:deep(.el-input__wrapper) {
+  padding: 12px 16px; /* 增加输入框内部空间 */
+  border-radius: 24px;
+  background: #f0f2f5;
+  height: 48px; /* 增加输入框高度 */
+}
+
+:deep(.el-input__inner) {
+  font-size: 15px;
+  color: #1e1e1e; /* 修改字体颜色为黑色 */
+}
+
+:deep(.el-input__inner::placeholder) {
+  color: #666; /* 修改占位符文字颜色,让它更清晰 */
+}
+
+/* 修改发送按钮大小 */
+:deep(.el-button.is-circle) {
+  width: 48px; /* 增加按钮尺寸 */
+  height: 48px;
+}
+
+/* 修改顶部输入框样式 */
+.search-bar {
+  padding: 12px 16px;
+}
+
+.search-bar :deep(.el-input__wrapper) {
+  height: 40px;
+}
+
+.search-bar :deep(.el-input__inner) {
+  color: #1e1e1e;
+}
+
+.search-bar :deep(.el-input__inner::placeholder) {
+  color: #666;
+}
+
+.ai-chat-widget {
+  position: fixed;
+  width: 320px; /* 添加固定宽度 */
+  z-index: 9999;
+}
+.drag-handle {
+  cursor: move;
+  position: absolute;
+  width: 100%;
+  height: 40px; /* 增加可拖动区域高度 */
+  z-index: 1;
+}
+.ai-chat-container {
+  position: relative;
+  z-index: 2;
+  background: white;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  height: 500px; /* 固定高度 */
+  bottom: 400px; /* 向上偏移400px */
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
 }
 
 </style>

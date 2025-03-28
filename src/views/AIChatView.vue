@@ -348,14 +348,6 @@ onMounted(() => {
   align-items: flex-start;
 }
 
-.message-ai {
-  justify-content: flex-start;
-}
-
-.message-user {
-  justify-content: flex-end;
-}
-
 .message-content {
   max-width: 80%;
   margin: 0 12px;
@@ -410,4 +402,6 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
 }
+
+
 </style> 
