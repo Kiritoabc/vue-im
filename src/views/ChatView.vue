@@ -49,6 +49,7 @@
             <el-button>表情</el-button>
             <el-button>图片</el-button>
             <el-button>文件</el-button>
+            <el-button type="primary" @click="showAIHelper = true">AI助手</el-button>
           </div>
           <el-input v-model="messageText" type="textarea" :rows="3" placeholder="请输入消息..." />
           <el-button type="primary" @click="sendMessage">发送</el-button>
@@ -227,6 +228,26 @@
       </template>
     </el-dialog>
 
+    <!-- AI助手抽屉 -->
+    <el-drawer
+      title="AI助手"
+      v-model="showAIHelper"
+      :visible.sync="showAIHelper"
+      size="400px"
+      direction="rtl"
+    >
+      <div>
+        <h3>欢迎使用AI助手！</h3>
+        <p>您可以在这里总结群友聊天内容和查询相关资料。</p>
+        <el-input v-model="aiQuery" placeholder="输入您的问题..." />
+        <el-button type="primary" @click="queryAI">查询</el-button>
+        <div v-if="aiResponse">
+          <h4>AI助手回复：</h4>
+          <p>{{ aiResponse }}</p>
+        </div>
+      </div>
+    </el-drawer>
+
   </div>
 </template>
 <script setup>
@@ -259,6 +280,24 @@ const selectedSender = ref(null)
 
 // 替换原来的 mockChats
 const chatList = ref([])
+
+// AI助手抽屉
+const showAIHelper = ref(false) // 控制AI助手抽屉的显示
+const aiQuery = ref('') // AI助手查询输入
+const aiResponse = ref('') // AI助手的回复
+
+// 查询AI助手
+const queryAI = async () => {
+  // 这里可以调用后端API来获取AI助手的回复
+  // 假设我们有一个API可以查询AI助手
+  try {
+    const response = await axios.post('http://localhost:8080/im-server/ai/query', { query: aiQuery.value })
+    aiResponse.value = response.data.answer // 假设返回的答案在answer字段中
+  } catch (error) {
+    console.error('查询AI助手失败:', error)
+    ElMessage.error('查询失败')
+  }
+}
 
 // 从 store 中获取用户信息
 const userInfo = computed(() => store.state.userInfo)
@@ -510,21 +549,32 @@ const connectWebSocket = () => {
   ws.onmessage = (event) => {
     try {
       const message = JSON.parse(event.data)
-      // 如果是当前聊天，直接添加到消息列表
-      if (message.receiverId === userInfo.value.id) {
-        const newMessage = {
-          id: message.id || Date.now(),
-          content: message.content,
-          senderId: message.senderId,
-          receiverId: message.receiverId,
-          senderName: message.senderName,
-          avatar: message.avatar
+      const newMessage = {
+        id: message.id || Date.now(),
+        content: message.content,
+        senderId: message.senderId,
+        receiverId: message.receiverId,
+        senderName: message.senderName,
+        avatar: message.avatar
+      }
+      console.log(newMessage)
+      // 根据消息类型处理
+      if (message.messageType === 'private') {
+        // 处理私聊消息
+        if (message.receiverId === userInfo.value.id) {
+          if (!currentChat.value.messages) {
+            currentChat.value.messages = []
+          }
+          currentChat.value.messages.push(newMessage)
         }
-        if (!currentChat.value.messages) {
-          currentChat.value.messages = []
+      } else if (message.messageType === 'group') {
+        // 处理群聊消息
+        if (currentChat.value.type === 'group' && message.groupId === currentChat.value.id) {
+          if (!currentChat.value.messages) {
+            currentChat.value.messages = []
+          }
+          currentChat.value.messages.push(newMessage)
         }
-        console.log(message)
-        currentChat.value.messages.push(newMessage)
       }
     } catch (error) {
       console.error('处理消息失败:', error)
@@ -547,12 +597,14 @@ const sendMessage = async () => {
   try {
     // 添加到本地消息列表（乐观更新）
     const newMessage = {
-      id: Date.now(),
-      content: messageText.value,
+      id: currentChat.value.messages.length + 1,
       senderId: userInfo.value.id,
-      receiverId: currentChatId.value,
       senderName: userInfo.value.username,
-      avatar: userInfo.value.avatar_url
+      avatar: userInfo.value.avatar,
+      content: messageText.value,
+      messageType: currentChat.value.type === 'group' ? 'group' : 'private', // 根据聊天类型设置消息类型
+      groupId: currentChat.value.type === 'group' ? currentChat.value.id : null, // 如果是群聊，设置群ID
+      receiverId: currentChat.value.type === 'personal' ? currentChat.value.id : null // 如果是私聊，设置接收者ID
     }
     ws.send(JSON.stringify(newMessage))
     if (!currentChat.value.messages) {
