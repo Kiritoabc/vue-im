@@ -40,6 +40,11 @@
             <div class="message-content">
               <div class="message-sender">{{ msg.senderName }}{{ formatTime(msg.timestamp)}}</div>
               <div class="message-text">{{ msg.content }}</div>
+              <div class="message-actions">
+                <el-button type="text" size="small" @click.stop="replyToMessage(msg)">
+                  <el-icon><ChatLineRound /></el-icon> 回复
+                </el-button>
+              </div>
             </div>
           </div>
         </div>
@@ -327,7 +332,7 @@ import axios from "axios";
 import {ElMessage} from "element-plus";
 import store from "../store/index.js";
 import {Edit, Plus, Position, Search} from '@element-plus/icons-vue'
-import { Close, ChatDotRound, Rank } from '@element-plus/icons-vue'
+import { Close, ChatDotRound, Rank, ChatLineRound } from '@element-plus/icons-vue'
 
 const formatTime = (timestamp) => {
   const date = new Date(timestamp)
@@ -963,6 +968,31 @@ onUnmounted(() => {
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
 })
+
+// 修改回复消息的方法，添加原消息内容
+const replyToMessage = (message) => {
+  // 获取原消息内容，如果过长则截断
+  const originalContent = message.content.length > 20 
+    ? message.content.substring(0, 20) + '...' 
+    : message.content;
+    
+  // 在输入框中添加@用户名和原消息内容
+  messageText.value = `@${message.senderName} 「${originalContent}」 `
+  
+  // 聚焦输入框
+  nextTick(() => {
+    const inputEl = document.querySelector('.message-input input')
+    if (inputEl) {
+      inputEl.focus()
+      
+      // 将光标移动到文本末尾
+      if (inputEl.setSelectionRange) {
+        const len = messageText.value.length
+        inputEl.setSelectionRange(len, len)
+      }
+    }
+  })
+}
 
 </script>
 
@@ -1681,6 +1711,29 @@ onUnmounted(() => {
   overflow-y: auto;
   padding: 16px;
   background-color: #f5f7fa;
+}
+
+/* 添加回复按钮样式 */
+.message-actions {
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-top: 4px;
+}
+
+.message:hover .message-actions {
+  opacity: 1;
+}
+
+.message-actions .el-button {
+  color: #909399;
+  padding: 2px 5px;
+}
+
+.message-actions .el-button:hover {
+  color: #409EFF;
+  background-color: rgba(64, 158, 255, 0.1);
 }
 
 </style>
