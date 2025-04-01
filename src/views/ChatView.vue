@@ -244,7 +244,9 @@
       :style="{
         left: widgetLeft + 'px',
         top: widgetTop + 'px',
-        transition: isDragging ? 'none' : 'all 0.3s'
+        width: widgetWidth + 'px',
+        height: aiChatExpanded ? widgetHeight + 'px' : 'auto',
+        transition: isDragging || isResizing ? 'none' : 'all 0.3s'
       }"
       @mousedown.prevent="startDrag">
       <div class="drag-handle" @mousedown.prevent="startDrag">
@@ -308,6 +310,11 @@
               @keyup.enter="sendAIMessage" />
           <el-button type="primary" :disabled="aiTyping" @click="sendAIMessage">发送</el-button>
         </div>
+        
+        <!-- 添加调整大小的把手 -->
+        <div class="resize-handle" @mousedown.prevent.stop="startResize">
+          <el-icon><Rank /></el-icon>
+        </div>
       </div>
     </div>
 
@@ -320,7 +327,7 @@ import axios from "axios";
 import {ElMessage} from "element-plus";
 import store from "../store/index.js";
 import {Edit, Plus, Position, Search} from '@element-plus/icons-vue'
-import { Close, ChatDotRound } from '@element-plus/icons-vue'
+import { Close, ChatDotRound, Rank } from '@element-plus/icons-vue'
 
 const formatTime = (timestamp) => {
   const date = new Date(timestamp)
@@ -379,6 +386,13 @@ const aiChatWidget = ref(null)
 const isDragging = ref(false)
 const widgetLeft = ref(20)
 const widgetTop = ref(20)
+const widgetWidth = ref(350)
+const widgetHeight = ref(500)
+const isResizing = ref(false)
+const resizeStartX = ref(0)
+const resizeStartY = ref(0)
+const resizeStartWidth = ref(0)
+const resizeStartHeight = ref(0)
 let startX = 0
 let startY = 0
 let offsetX = 0
@@ -386,13 +400,15 @@ let offsetY = 0
 
 // 修改拖动逻辑处理
 const startDrag = (e) => {
+  // 如果点击的是按钮或调整大小把手，不启动拖动
+  if (e.target.closest('.el-button') || e.target.closest('.resize-handle')) return
+  
+  // 其余拖动逻辑保持不变
   if (aiChatExpanded.value) {
-    // 展开状态时允许整个容器拖动
     const rect = aiChatWidget.value.getBoundingClientRect()
     offsetX = e.clientX - rect.left
     offsetY = e.clientY - rect.top
   } else {
-    // 收起状态时保持原逻辑
     offsetX = e.clientX - aiChatWidget.value.getBoundingClientRect().left
     offsetY = e.clientY - aiChatWidget.value.getBoundingClientRect().top
   }
@@ -894,6 +910,36 @@ const sendMessage = async () => {
   }
 }
 
+// 开始调整大小
+const startResize = (e) => {
+  isResizing.value = true
+  resizeStartX.value = e.clientX
+  resizeStartY.value = e.clientY
+  resizeStartWidth.value = widgetWidth.value
+  resizeStartHeight.value = widgetHeight.value
+  
+  document.addEventListener('mousemove', handleResize)
+  document.addEventListener('mouseup', stopResize)
+}
+
+// 处理调整大小
+const handleResize = (e) => {
+  if (!isResizing.value) return
+  
+  const dx = e.clientX - resizeStartX.value
+  const dy = e.clientY - resizeStartY.value
+  
+  // 设置最小尺寸限制
+  widgetWidth.value = Math.max(300, resizeStartWidth.value + dx)
+  widgetHeight.value = Math.max(400, resizeStartHeight.value + dy)
+}
+
+const stopResize = () => {
+  isResizing.value = false
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+}
+
 // 在组件挂载时建立连接
 onMounted(() => {
   fetchChatList()
@@ -907,11 +953,15 @@ onMounted(() => {
 
 })
 
-// 在组件卸载时关闭连接
+// 在组件卸载时清理事件监听
 onUnmounted(() => {
   if (ws) {
     ws.close()
   }
+  document.removeEventListener('mousemove', handleDrag)
+  document.removeEventListener('mouseup', stopDrag)
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
 })
 
 </script>
@@ -1243,6 +1293,9 @@ onUnmounted(() => {
   right: 32px;
   bottom: 108px;
   z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .ai-chat-button {
@@ -1268,9 +1321,10 @@ onUnmounted(() => {
 
 .ai-chat-messages {
   flex: 1;
-  padding: 16px;
   overflow-y: auto;
+  padding: 16px;
   background-color: #f5f7fa;
+  min-height: 200px;
 }
 
 .ai-message {
@@ -1577,14 +1631,17 @@ onUnmounted(() => {
 
 .ai-chat-widget {
   position: fixed;
-  width: 320px; /* 添加固定宽度 */
+  width: 320px;
   z-index: 9999;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .drag-handle {
   cursor: move;
-  position: absolute;
+  position: relative;
   width: 100%;
-  height: 40px; /* 增加可拖动区域高度 */
+  height: 40px;
   z-index: 1;
 }
 .ai-chat-container {
@@ -1592,11 +1649,38 @@ onUnmounted(() => {
   z-index: 2;
   background: white;
   box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-  height: 500px; /* 固定高度 */
-  bottom: 400px; /* 向上偏移400px */
   border-radius: 8px;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 添加调整大小的把手 */
+.resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  z-index: 10;
+}
+
+.resize-handle:hover {
+  color: #409EFF;
+}
+
+/* 确保消息区域可以滚动且占据剩余空间 */
+.ai-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background-color: #f5f7fa;
 }
 
 </style>
