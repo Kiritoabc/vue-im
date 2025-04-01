@@ -816,11 +816,12 @@ const sendMessage = async () => {
   if (!messageText.value.trim() || !ws || ws.readyState !== WebSocket.OPEN) return
   try {
     // 添加到本地消息列表（乐观更新）
+    console.log(userInfo.value.avatar_url)
     const newMessage = {
       id: currentChat.value.messages.length + 1,
       senderId: userInfo.value.id,
       senderName: userInfo.value.username,
-      avatar: userInfo.value.avatar,
+      avatar: userInfo.value.avatar_url,
       content: messageText.value,
       messageType: currentChat.value.type === 'group' ? 'group' : 'private', // 根据聊天类型设置消息类型
       groupId: currentChat.value.type === 'group' ? currentChat.value.id : null, // 如果是群聊，设置群ID
