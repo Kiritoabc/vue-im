@@ -286,6 +286,9 @@
                 </div>
               </template>
             </div>
+            <div v-if="msg.sender === 'user'" class="ai-avatar user-avatar">
+              <el-avatar :size="30" :src="userInfo.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
+            </div>
           </div>
           <div v-if="aiTyping" class="ai-message ai-message-bot ai-typing">
             <div class="ai-avatar">
@@ -426,40 +429,86 @@ const toggleAIChat = () => {
 
 // 发送消息给AI
 const sendAIMessage = async () => {
-  if (!aiInputMessage.value.trim() || aiTyping.value) return
-
+  if (!aiInputMessage.value.trim()) return
+  
   // 添加用户消息
   aiMessages.value.push({
     sender: 'user',
     type: 'text',
-    content: aiInputMessage.value
+    content: aiInputMessage.value,
+    id: Date.now()
   })
-
-  const userMessage = aiInputMessage.value
+  
+  const userInput = aiInputMessage.value
   aiInputMessage.value = ''
-
-  // 滚动到底部
-  await nextTick()
   scrollToBottom()
-
-  // 显示机器人正在输入
+  
+  // 显示AI正在输入
   aiTyping.value = true
-
-  // 模拟API调用延迟
-  setTimeout(async () => {
-    // 添加机器人回复
+  
+  try {
+    // 初始化 WebSocket 连接
+    const ws = new WebSocket('ws://localhost:8080/im-server/ws')
+    
+    ws.onopen = () => {
+      // 发送用户消息
+      const userMessage = {
+        userId: userInfo.value.id,
+        content: userInput,
+      }
+      ws.send(JSON.stringify(userMessage))
+    }
+    
+    // 处理AI的回复
+    ws.onmessage = (event) => {
+      if (aiTyping.value) {
+        // 第一次收到消息时，创建AI消息
+        aiTyping.value = false
+        aiMessages.value.push({
+          sender: 'bot',
+          type: 'text',
+          content: event.data,
+          id: 'streaming'
+        })
+      } else {
+        // 追加流式数据
+        const aiMessage = aiMessages.value.find(msg => msg.id === 'streaming')
+        if (aiMessage) {
+          aiMessage.content += event.data
+        }
+      }
+      scrollToBottom()
+    }
+    
+    ws.onclose = () => {
+      // 标记流式消息完成
+      const aiMessage = aiMessages.value.find(msg => msg.id === 'streaming')
+      if (aiMessage) {
+        aiMessage.id = Date.now()
+      }
+      aiTyping.value = false
+    }
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error)
+      aiTyping.value = false
+      aiMessages.value.push({
+        sender: 'bot',
+        type: 'text',
+        content: '抱歉，连接出现问题，请稍后再试。',
+        id: Date.now()
+      })
+    }
+  } catch (error) {
+    console.error('AI请求失败:', error)
+    aiTyping.value = false
     aiMessages.value.push({
       sender: 'bot',
       type: 'text',
-      content: `我收到了您的问题: "${userMessage}"。正在为您处理...`
+      content: '请求失败，请稍后再试',
+      id: Date.now()
     })
-
-    aiTyping.value = false
-
-    // 滚动到底部
-    await nextTick()
-    scrollToBottom()
-  }, 1500)
+  }
 }
 
 // 选择预设选项
@@ -505,9 +554,11 @@ const selectOption = async (option) => {
 
 // 滚动到底部
 const scrollToBottom = () => {
-  if (aiChatMessages.value) {
-    aiChatMessages.value.scrollTop = aiChatMessages.value.scrollHeight
-  }
+  nextTick(() => {
+    if (aiChatMessages.value) {
+      aiChatMessages.value.scrollTop = aiChatMessages.value.scrollHeight
+    }
+  })
 }
 
 // 监听AI聊天框展开状态
@@ -1223,28 +1274,33 @@ onUnmounted(() => {
 }
 
 .ai-message {
-  margin-bottom: 12px;
   display: flex;
+  margin-bottom: 12px;
   align-items: flex-start;
 }
 
 .ai-message-bot {
   justify-content: flex-start;
+  padding-right: 15%;
 }
 
 .ai-message-user {
   justify-content: flex-end;
-  flex-direction: row-reverse;
+  padding-left: 15%;
 }
 
 .ai-avatar {
-  margin-right: 8px;
+  margin: 0 8px;
+}
+
+.user-avatar {
+  order: 1;
 }
 
 .ai-message-content {
   padding: 10px 12px;
   border-radius: 8px;
-  max-width: 80%;
+  max-width: 100%;
   word-break: break-word;
 }
 
@@ -1256,6 +1312,7 @@ onUnmounted(() => {
 .ai-message-user .ai-message-content {
   background-color: #4468e3;
   color: white;
+  order: 0;
 }
 
 .ai-options {
