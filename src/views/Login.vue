@@ -2,8 +2,8 @@
   <div class="auth-container">
     <!-- 添加系统标题 -->
     <div class="system-title">
-      <h1>原神交流 IM 系统</h1>
-      <p>与提瓦特大陆的冒险者们在线交流</p>
+      <h1> IM 系统</h1>
+      <p>冒险者们在线交流</p>
     </div>
     <div class="auth-box" :class="{ 'slide-signup': isSignUp }">
       <!-- 左侧登录面板 -->

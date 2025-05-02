@@ -115,6 +115,13 @@
 
       <!-- 好友列表 -->
       <div v-if="activeTab === 'friends'" class="list-content">
+        <!-- 添加创建群聊按钮 -->
+        <div class="create-group-btn">
+          <el-button type="primary" @click="showCreateGroupDialog" size="small" style="width: 90%; margin: 10px;">
+            <el-icon><Plus /></el-icon>创建分组
+          </el-button>
+        </div>
+
         <!-- 好友分组列表 -->
         <div v-for="group in friendGroups" :key="group.group_id" class="friend-group">
           <div class="group-header" @click="toggleGroup(group.group_id)">

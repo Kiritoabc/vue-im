@@ -315,7 +315,7 @@
               @keyup.enter="sendAIMessage" />
           <el-button type="primary" :disabled="aiTyping" @click="sendAIMessage">发送</el-button>
         </div>
-        
+
         <!-- 添加调整大小的把手 -->
         <div class="resize-handle" @mousedown.prevent.stop="startResize">
           <el-icon><Rank /></el-icon>
@@ -378,7 +378,7 @@ const aiMessages = ref([
     type: 'options',
     options: [
       { label: '搜索支持文章', value: 'search' },
-      { label: '提交支持工单', value: 'ticket' }
+      { label: '上下文总结', value: 'ticket' },
     ]
   }
 ])
@@ -407,7 +407,7 @@ let offsetY = 0
 const startDrag = (e) => {
   // 如果点击的是按钮或调整大小把手，不启动拖动
   if (e.target.closest('.el-button') || e.target.closest('.resize-handle')) return
-  
+
   // 其余拖动逻辑保持不变
   if (aiChatExpanded.value) {
     const rect = aiChatWidget.value.getBoundingClientRect()
@@ -451,35 +451,35 @@ const toggleAIChat = () => {
 // 发送消息给AI
 const sendAIMessage = async () => {
   if (!aiInputMessage.value.trim()) return
-  
+
   // 添加用户消息
   aiMessages.value.push({
     sender: 'user',
     type: 'text',
-    content: aiInputMessage.value,
+    content: '小A发送你好我是菠萝，小B发送你好呀。'+aiInputMessage.value,
     id: Date.now()
   })
-  
-  const userInput = aiInputMessage.value
+
+  const userInput =  aiInputMessage.value
   aiInputMessage.value = ''
   scrollToBottom()
-  
+  const userInput2 = '小A发送你好我是菠萝，小B发送你好呀。'+ aiInputMessage.value
   // 显示AI正在输入
   aiTyping.value = true
-  
+
   try {
     // 初始化 WebSocket 连接
     const ws = new WebSocket('ws://localhost:8080/im-server/ws')
-    
+
     ws.onopen = () => {
       // 发送用户消息
       const userMessage = {
         userId: userInfo.value.id,
-        content: userInput,
+        content: userInput2,
       }
       ws.send(JSON.stringify(userMessage))
     }
-    
+
     // 处理AI的回复
     ws.onmessage = (event) => {
       if (aiTyping.value) {
@@ -500,7 +500,7 @@ const sendAIMessage = async () => {
       }
       scrollToBottom()
     }
-    
+
     ws.onclose = () => {
       // 标记流式消息完成
       const aiMessage = aiMessages.value.find(msg => msg.id === 'streaming')
@@ -509,7 +509,7 @@ const sendAIMessage = async () => {
       }
       aiTyping.value = false
     }
-    
+
     ws.onerror = (error) => {
       console.error('WebSocket error:', error)
       aiTyping.value = false
@@ -555,7 +555,7 @@ const selectOption = async (option) => {
     if (option.value === 'search') {
       response = '您可以在下方输入关键词，我会为您搜索相关支持文章。'
     } else if (option.value === 'ticket') {
-      response = '请描述您遇到的问题，我们的客服人员会尽快处理您的工单。'
+      response = '看起来你发送了一段对话内容。小A和菠萝打招呼，小B回应了。如果你需要我帮助分析这段对话或者有其他问题，请随时告诉我!'
     }
 
     // 添加机器人回复
@@ -922,7 +922,7 @@ const startResize = (e) => {
   resizeStartY.value = e.clientY
   resizeStartWidth.value = widgetWidth.value
   resizeStartHeight.value = widgetHeight.value
-  
+
   document.addEventListener('mousemove', handleResize)
   document.addEventListener('mouseup', stopResize)
 }
@@ -930,10 +930,10 @@ const startResize = (e) => {
 // 处理调整大小
 const handleResize = (e) => {
   if (!isResizing.value) return
-  
+
   const dx = e.clientX - resizeStartX.value
   const dy = e.clientY - resizeStartY.value
-  
+
   // 设置最小尺寸限制
   widgetWidth.value = Math.max(300, resizeStartWidth.value + dx)
   widgetHeight.value = Math.max(400, resizeStartHeight.value + dy)
@@ -972,19 +972,19 @@ onUnmounted(() => {
 // 修改回复消息的方法，添加原消息内容
 const replyToMessage = (message) => {
   // 获取原消息内容，如果过长则截断
-  const originalContent = message.content.length > 20 
-    ? message.content.substring(0, 20) + '...' 
+  const originalContent = message.content.length > 20
+    ? message.content.substring(0, 20) + '...'
     : message.content;
-    
+
   // 在输入框中添加@用户名和原消息内容
   messageText.value = `@${message.senderName} 「${originalContent}」 `
-  
+
   // 聚焦输入框
   nextTick(() => {
     const inputEl = document.querySelector('.message-input input')
     if (inputEl) {
       inputEl.focus()
-      
+
       // 将光标移动到文本末尾
       if (inputEl.setSelectionRange) {
         const len = messageText.value.length
