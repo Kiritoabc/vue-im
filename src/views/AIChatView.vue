@@ -105,7 +105,7 @@ console.log(userInfo.value.id)
 
 // 模拟数据
 const userAvatar = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3w2fqb71MsCj97IKLAUXoI6BS4IfeCeEoq_XGS3X2CErGlYyP4xxX4eQ&s'
-const aiAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+const aiAvatar = 'https://cdn.jsdelivr.net/gh/Kiritoabc/my_cdn/img/header.jpg'
 
 const aiChats = ref([
   {

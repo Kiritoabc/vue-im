@@ -294,12 +294,12 @@
               </template>
             </div>
             <div v-if="msg.sender === 'user'" class="ai-avatar user-avatar">
-              <el-avatar :size="30" :src="userInfo.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
+              <el-avatar :size="30" :src="userInfo.avatar_url || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
             </div>
           </div>
           <div v-if="aiTyping" class="ai-message ai-message-bot ai-typing">
             <div class="ai-avatar">
-              <el-avatar :size="30" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" />
+              <el-avatar :size="30" src="https://cdn.jsdelivr.net/gh/Kiritoabc/my_cdn/img/header.jpg" />
             </div>
             <div class="ai-typing-indicator">
               <span></span><span></span><span></span>
@@ -555,7 +555,36 @@ const selectOption = async (option) => {
     if (option.value === 'search') {
       response = '您可以在下方输入关键词，我会为您搜索相关支持文章。'
     } else if (option.value === 'ticket') {
-      response = '看起来你发送了一段对话内容。小A和菠萝打招呼，小B回应了。如果你需要我帮助分析这段对话或者有其他问题，请随时告诉我!'
+      try {
+        const token = localStorage.getItem('token')
+        const response = await axios.post('http://localhost:8080/im-server/chat/summary', {
+          chat_type: route.path.includes('group') ? 'group' : 'private',
+          user_id: userInfo.value.id,
+          to_id: currentChatId.value
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'token': token
+          }
+        })
+
+        aiTyping.value = false
+        // 添加机器人回复
+        aiMessages.value.push({
+          sender: 'bot',
+          type: 'text',
+          content: response.data.data.summary || '暂无聊天记录可供总结'
+        })
+
+      } catch (error) {
+        console.error('获取聊天总结失败:', error)
+        aiTyping.value = false
+        aiMessages.value.push({
+          sender: 'bot',
+          type: 'text',
+          content: '获取聊天总结失败，请稍后重试'
+        })
+      }
     }
 
     // 添加机器人回复
@@ -593,6 +622,7 @@ watch(aiChatExpanded, (newVal) => {
 
 // 从 store 中获取用户信息
 const userInfo = computed(() => store.state.userInfo)
+
 // 添加一个计算属性来判断是否为群聊
 const isGroupChat = computed(() => {
   return route.path.includes('group')
