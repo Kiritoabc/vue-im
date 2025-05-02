@@ -358,6 +358,22 @@
         </div>
       </div>
     </div>
+
+    <!-- 在 template 中添加创建分组的对话框 -->
+    <el-dialog v-model="showCreateFriendGroup" title="创建分组" width="400px">
+      <el-form :model="friendGroupForm" :rules="friendGroupRules" ref="friendGroupFormRef">
+        <el-form-item label="分组名称" prop="group_name">
+          <el-input v-model="friendGroupForm.group_name" placeholder="请输入分组名称"></el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showCreateFriendGroup = false">取消</el-button>
+          <el-button type="primary" @click="createFriendGroup">创建</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -741,9 +757,13 @@ const showNotice = (type) => {
 // 创建群聊
 // 添加以下方法
 const showCreateGroupDialog = () => {
-  showCreateGroup.value = true
-  groupForm.name = ''
-  groupForm.group_avatar = ''
+  if (activeTab.value === 'friends') {
+    showCreateFriendGroup.value = true
+  } else {
+    showCreateGroup.value = true
+    groupForm.name = ''
+    groupForm.group_avatar = ''
+  }
 }
 
 const beforeAvatarUpload = (file) => {
@@ -820,6 +840,56 @@ const createGroup = async () => {
       } catch (error) {
         console.error('创建群聊失败:', error)
         ElMessage.error('创建群聊失败，请稍后重试')
+      }
+    }
+  })
+}
+
+// 修改创建分组相关的响应式变量
+const showCreateFriendGroup = ref(false)
+const friendGroupFormRef = ref(null)
+const friendGroupForm = reactive({
+  group_name: ''
+})
+
+// 修改分组表单验证规则
+const friendGroupRules = {
+  group_name: [
+    { required: true, message: '请输入分组名称', trigger: 'blur' },
+    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+  ]
+}
+
+// 修改创建分组的方法
+const createFriendGroup = async () => {
+  if (!friendGroupFormRef.value) return
+
+  await friendGroupFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const token = getToken()
+        const response = await axios.post('http://localhost:8080/im-server/friend_groups', {
+          group_name: friendGroupForm.group_name
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'token': token
+          }
+        })
+
+        if (response.status === 200) {
+          ElMessage.success('分组创建成功')
+          showCreateFriendGroup.value = false
+          // 刷新好友分组列表
+          await fetchFriendsList()
+          // 重置表单
+          friendGroupForm.group_name = ''
+        } else {
+          ElMessage.error(response.data.msg || '创建失败')
+        }
+      } catch (error) {
+        console.error('创建分组失败:', error)
+        ElMessage.error('创建分组失败，请稍后重试')
       }
     }
   })
