@@ -386,6 +386,7 @@ import axios from 'axios'
 import { ElNotification } from 'element-plus' // 导入 ElNotification
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
 
 const router = useRouter()
 const searchText = ref('')
@@ -635,8 +636,42 @@ const editRemark = (friend) => {
 }
 
 // 删除好友
-const deleteFriend = (friend) => {
-  // 实现删除好友的逻辑
+const deleteFriend = async (friend) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除好友「${friend.nickname || friend.username || friend.name}」吗？`,
+      '删除好友',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    // 用户确认后执行删除
+    const token = getToken()
+    const response = await axios.post(
+      'http://localhost:8080/im-server/user/del_friend',
+      { friend_id: friend.id },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'token': token,
+        }
+      }
+    )
+    if (response.status === 200) {
+      ElMessage.success('好友删除成功')
+      // 刷新好友列表
+      await fetchFriendsList()
+      selectedFriend.value = null
+    } else {
+      ElMessage.error(response.data.msg || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败，请稍后重试')
+    }
+  }
 }
 
 // 进入群聊
