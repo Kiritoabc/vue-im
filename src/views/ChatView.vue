@@ -5,8 +5,38 @@
     <div class="chat-main">
       <!-- 聊天列表 -->
       <div class="chat-list">
-        <div class="search-bar">
-          <el-input v-model="searchText" placeholder="搜索" />
+        <div class="search-bar" style="position: relative;">
+          <el-input v-model="searchText" placeholder="搜索好友/群聊"
+                    @input="onSearchInput"
+                    @focus="showSearchDropdown = true"
+                    @blur="onSearchBlur" />
+          <!-- 搜索下拉结果 -->
+          <div v-if="showSearchDropdown && searchText && (searchDropdownFriends.length || searchDropdownGroups.length)" class="search-dropdown">
+            <div v-if="searchDropdownFriends.length">
+              <div class="search-dropdown-title">好友</div>
+              <div
+                v-for="friend in searchDropdownFriends"
+                :key="'friend-' + friend.id"
+                class="search-dropdown-item"
+                @mousedown.prevent="startChatWithFriend(friend)"
+              >
+                <el-avatar :src="friend.avatar" size="small" />
+                <span style="margin-left: 8px;">{{ friend.name }}</span>
+              </div>
+            </div>
+            <div v-if="searchDropdownGroups.length">
+              <div class="search-dropdown-title">群聊</div>
+              <div
+                v-for="group in searchDropdownGroups"
+                :key="'group-' + group.id"
+                class="search-dropdown-item"
+                @mousedown.prevent="startChatWithGroup(group)"
+              >
+                <el-avatar :src="group.avatar" size="small" />
+                <span style="margin-left: 8px;">{{ group.name }}</span>
+              </div>
+            </div>
+          </div>
         </div>
         <!-- 修改聊天项的点击事件 -->
         <div class="chat-items">
@@ -38,7 +68,7 @@
             :class="['message', { 'message-self': msg.senderId === mockUser.id }]" @click="showSenderInfo(msg)">
             <el-avatar :src="msg.avatar" />
             <div class="message-content">
-              <div class="message-sender">{{ msg.senderName }}{{ formatTime(msg.timestamp)}}</div>
+              <div class="message-sender">{{ msg.senderName }}{{ formatTime(msg.createdAt)}}</div>
               <div class="message-text">{{ msg.content }}</div>
               <div class="message-actions">
                 <el-button type="text" size="small" @click.stop="replyToMessage(msg)">
@@ -336,9 +366,12 @@ import { Close, ChatDotRound, Rank, ChatLineRound } from '@element-plus/icons-vu
 
 const formatTime = (timestamp) => {
   const date = new Date(timestamp)
+  const year = date.getFullYear()
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const day = date.getDate().toString().padStart(2, '0')
   const hours = date.getHours().toString().padStart(2, '0')
   const minutes = date.getMinutes().toString().padStart(2, '0')
-  return `${hours}:${minutes}`
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
 // 添加新的响应式变量
@@ -980,6 +1013,7 @@ onMounted(() => {
   fetchChatList()
   connectWebSocket()
   fetchFriendsList() // 添加这一行
+  fetchGroupList()
   // 获取窗口尺寸
   const { innerWidth, innerHeight } = window
   // 设置初始位置在右下角（右侧20px，底部120px）
@@ -1022,6 +1056,72 @@ const replyToMessage = (message) => {
       }
     }
   })
+}
+
+const showSearchDropdown = ref(false)
+const searchDropdownFriends = ref([])
+const searchDropdownGroups = ref([])
+
+// 群聊列表（只包含你加入/管理/创建的群）
+const myGroups = ref([])
+
+// 搜索输入时过滤好友和群聊
+const onSearchInput = () => {
+  if (!searchText.value) {
+    searchDropdownFriends.value = []
+    searchDropdownGroups.value = []
+    return
+  }
+  const keyword = searchText.value.toLowerCase()
+  searchDropdownFriends.value = friends.value.filter(friend =>
+    friend.name && friend.name.toLowerCase().includes(keyword)
+  )
+  searchDropdownGroups.value = myGroups.value.filter(group =>
+    group.name && group.name.toLowerCase().includes(keyword)
+  )
+}
+
+// 点击搜索结果发起聊天
+const startChatWithFriend = (friend) => {
+  showSearchDropdown.value = false
+  searchText.value = ''
+  router.push(`/chat/personal/${friend.id}`)
+}
+const startChatWithGroup = (group) => {
+  showSearchDropdown.value = false
+  searchText.value = ''
+  router.push(`/chat/group/${group.id}`)
+}
+
+// 失焦时隐藏下拉
+const onSearchBlur = () => {
+  setTimeout(() => {
+    showSearchDropdown.value = false
+  }, 200)
+}
+
+// 获取群聊列表时合并
+const fetchGroupList = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.get('http://localhost:8080/im-server/groups/my_groups', {
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+    if (response.status === 200) {
+      // 合并所有群聊
+      myGroups.value = [
+        ...(response.data.data.created_groups || []),
+        ...(response.data.data.managed_groups || []),
+        ...(response.data.data.joined_groups || [])
+      ]
+    }
+  } catch (error) {
+    console.error('获取群聊列表失败:', error)
+    ElMessage.error('获取群聊列表失败')
+  }
 }
 
 </script>
@@ -1764,6 +1864,14 @@ const replyToMessage = (message) => {
 .message-actions .el-button:hover {
   color: #409EFF;
   background-color: rgba(64, 158, 255, 0.1);
+}
+
+/* 增加分组标题样式 */
+.search-dropdown-title {
+  font-size: 12px;
+  color: #999;
+  padding: 4px 12px 2px 12px;
+  background: #f7f7f7;
 }
 
 </style>
