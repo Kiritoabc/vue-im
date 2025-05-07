@@ -892,7 +892,7 @@ const fetchGroupMembers = async (groupId) => {
   }
 }
 
- // 创建 WebSocket 连接
+ // 创建 WebSocket 连接 ,获取消息
 const connectWebSocket = () => {
   // const token = localStorage.getItem('token')
   ws = new WebSocket(`ws://localhost:8080/im-server/private/chat`)
@@ -912,23 +912,48 @@ const connectWebSocket = () => {
         senderName: message.senderName,
         avatar: message.avatar
       }
+      console.log("获取到的消息")
       console.log(newMessage)
       // 根据消息类型处理
       if (message.messageType === 'private') {
         // 处理私聊消息
+        console.log("获取到私聊的消息")
         if (message.receiverId === userInfo.value.id) {
           if (!currentChat.value.messages) {
             currentChat.value.messages = []
           }
-          currentChat.value.messages.push(newMessage)
+          if (currentChat.type === 'personal') {
+            currentChat.value.messages.push(newMessage)
+          }
+          // 将消息添加到chatList中去
+          const chat = chatList.value.find(chat =>
+              chat.id === message.senderId &&
+              chat.type === 'personal')
+          if (chat) {
+            chat.lastMessage = newMessage.content
+            chat.messages = chat.messages || []
+            chat.messages.push(newMessage)
+          }
         }
       } else if (message.messageType === 'group') {
         // 处理群聊消息
-        if (currentChat.value.type === 'group' && message.groupId === currentChat.value.id) {
+        console.log("获取到群聊的消息")
+        if (message.groupId === currentChat.value.id) {
           if (!currentChat.value.messages) {
             currentChat.value.messages = []
           }
-          currentChat.value.messages.push(newMessage)
+          if (currentChat.value.type === 'group') {
+            currentChat.value.messages.push(newMessage)
+          }
+          // 将消息添加到chatList中去
+          const chat = chatList.value.find(chat =>
+              chat.id === message.groupId &&
+              chat.type === 'group')
+          if (chat) {
+            chat.lastMessage = newMessage.content
+            chat.messages = chat.messages || []
+            chat.messages.push(newMessage)
+          }
         }
       }
     } catch (error) {
