@@ -65,10 +65,17 @@
               <el-input v-model="friendForm.remark" placeholder="请输入备注"></el-input>
             </el-form-item>
             <el-form-item label="分组">
-              <el-select v-model="friendForm.group" placeholder="请选择分组">
-                <el-option label="朋友" value="朋友"></el-option>
-                <el-option label="家人" value="家人"></el-option>
-                <el-option label="同事" value="同事"></el-option>
+              <el-select
+                v-model="friendForm.group"
+                placeholder="请选择分组"
+                @change="onGroupChange"
+              >
+                <el-option
+                  v-for="group in friendGroupOptions"
+                  :key="group.group_id"
+                  :label="group.group_name"
+                  :value="group.group_name"
+                />
               </el-select>
             </el-form-item>
             <el-form-item label="好友验证">
@@ -76,10 +83,12 @@
             </el-form-item>
           </el-form>
         </div>
-        <span slot="footer" class="dialog-footer">
-          <el-button @click="showAddFriend = false">取 消</el-button>
-          <el-button type="primary" @click="addFriend">确 定</el-button>
-        </span>
+        <template #footer>
+          <div class="dialog-footer">
+            <el-button @click="showAddFriend = false">取 消</el-button>
+            <el-button type="primary" @click="addFriend">确 定</el-button>
+          </div>
+        </template>
       </el-dialog>
 
       <!-- 在原有代码中添加 -->
@@ -428,8 +437,31 @@ const friendForm = ref({
   remark: '',
   group: '',
   verification: '',
-  avatar: '' // 添加头像字段
+  avatar: '', // 添加头像字段
+  group_id: 0
 })
+
+const friendGroupOptions = ref([])
+
+const fetchFriendGroups = async () => {
+  try {
+    const token = getToken()
+    const response = await axios.get('http://localhost:8080/im-server/friends/user/friend_groups', {
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+    if (response.status === 200) {
+      friendGroupOptions.value = response.data.data
+    } else {
+      friendGroupOptions.value = []
+    }
+  } catch (error) {
+    friendGroupOptions.value = []
+    console.error('获取好友分组失败:', error)
+  }
+}
 
 // 获取好友列表
 const fetchFriendsList = async () => {
@@ -610,13 +642,6 @@ const selectFriend = (friend) => {
   selectedFriend.value = friend
 }
 
-// 选择好友
-// const selectFriend = (friend) => {
-//   selectedFriend.value = friend
-//   selectedGroup.value = null
-//   showSearchResults.value = false
-// }
-
 // 选择群聊
 const selectGroup = (group) => {
   console.log('selectGroup', group.name)
@@ -735,7 +760,7 @@ const addFriend = async () => {
     const response = await axios.post('http://localhost:8080/im-server/user/add_friend', {
       'friend_id': friendForm.value.id, // 好友ID
       'remark': friendForm.value.remark, // 备注
-      'group_id': 1, // 分组ID（需要根据实际情况调整）
+      'group_id': friendForm.value.group_id, // 分组ID（需要根据实际情况调整）
       'content': friendForm.value.verification // 验证信息
     }, {
       headers: {
@@ -773,14 +798,20 @@ const joinGroup = (group) => {
 }
 
 // 显示添加好友对话框
-const showAddFriendDialog = (user) => {
-  friendForm.value.nickname = user.username // 填充好友昵称
-  friendForm.value.remark = '' // 备注可以为空
-  friendForm.value.group = '朋友' // 默认分组
-  friendForm.value.verification = '' // 验证信息可以为空
-  friendForm.value.avatar = user.avatar_url // 填充好友头像
+const showAddFriendDialog = async (user) => {
+  friendForm.value.nickname = user.username
+  friendForm.value.remark = ''
+  friendForm.value.group = ''
+  friendForm.value.group_id = 0
+  friendForm.value.verification = ''
+  friendForm.value.avatar = user.avatar_url
   friendForm.value.id  = user.id
-  console.log('添加好友:',friendForm.value.avatar_url)
+  await fetchFriendGroups()
+  if (friendGroupOptions.value.length > 0) {
+    friendForm.value.group = friendGroupOptions.value[0].group_name
+    friendForm.value.group_id = friendGroupOptions.value[0].id
+    console.log(friendForm.value)
+  }
   showAddFriend.value = true
 }
 
@@ -928,6 +959,16 @@ const createFriendGroup = async () => {
       }
     }
   })
+}
+
+const onGroupChange = (groupName) => {
+  // 找到选中的分组对象
+  const group = friendGroupOptions.value.find(g => g.group_name === groupName)
+  if (group) {
+    friendForm.value.group_id = group.id
+  } else {
+    friendForm.value.group_id = 0
+  }
 }
 
 onMounted(() => {
