@@ -880,8 +880,21 @@ watch(
         )
         if (chat) {
           currentChat.value = chat
-          // 如果是群聊，获取群成员列表
+          // 如果是群聊，获取群成员列表并设置currentGroup
           if (chatType === 'group') {
+            // 从myGroups中找到对应的群信息
+            const group = myGroups.value.find(g => g.id === currentChatId.value)
+            if (group) {
+              currentGroup.value = {
+                id: group.id,
+                name: group.name,
+                avatar: group.avatar,
+                announcement: group.announcement,
+                description: group.description,
+                created_at: group.created_at,
+                owner_id: group.owner_id
+              }
+            }
             fetchGroupMembers(currentChatId.value)
           }
         }
