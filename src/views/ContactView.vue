@@ -147,7 +147,7 @@
                  @click="selectFriend(friend)">
               <el-avatar :size="30" :src="friend.avatar_url" />
               <div class="friend-info">
-                <div class="nickname">{{ friend.username }}</div>
+                <div class="nickname">{{ friend.remark || friend.username }}</div>
                 <div class="status">{{ friend.bio || '[暂无签名]' }}</div>
               </div>
             </div>
@@ -256,7 +256,7 @@
         <div class="detail-header">
           <el-avatar :size="80" :src="selectedFriend.avatar_url" />
           <div class="basic-info">
-            <h2>{{ selectedFriend.nickname }}</h2>
+            <h2>{{ selectedFriend.remark || selectedFriend.username }}</h2>
             <div class="account">QQ：{{ selectedFriend.phone_number }}</div>
             <div class="online-status">
               <span class="status-dot"></span>
@@ -269,7 +269,11 @@
           <div class="info-section">
             <div class="info-item">
               <span class="label">备注名</span>
-              <span>{{ selectedFriend.username || '暂无备注' }}</span>
+              <span>{{ selectedFriend.remark || '暂无备注' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">原名</span>
+              <span>{{ selectedFriend.username }}</span>
             </div>
             <div class="info-item">
               <span class="label">性别</span>
@@ -379,6 +383,31 @@
         <div class="dialog-footer">
           <el-button @click="showCreateFriendGroup = false">取消</el-button>
           <el-button type="primary" @click="createFriendGroup">创建</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 添加修改备注对话框 -->
+    <el-dialog v-model="showEditRemark" title="修改好友信息" width="400px">
+      <el-form :model="editRemarkForm" label-width="80px">
+        <el-form-item label="备注名">
+          <el-input v-model="editRemarkForm.remark" placeholder="请输入备注名"></el-input>
+        </el-form-item>
+        <el-form-item label="分组">
+          <el-select v-model="editRemarkForm.group_id" placeholder="请选择分组">
+            <el-option
+              v-for="group in friendGroupOptions"
+              :key="group.id"
+              :label="group.group_name"
+              :value="group.id"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showEditRemark = false">取 消</el-button>
+          <el-button type="primary" @click="submitEditRemark">确 定</el-button>
         </div>
       </template>
     </el-dialog>
@@ -656,8 +685,59 @@ const sendMessage = (friend) => {
 }
 
 // 编辑备注
-const editRemark = (friend) => {
-  // 实现编辑备注的逻辑
+const editRemark = async (friend) => {
+  // 获取好友分组列表
+  await fetchFriendGroups()
+  
+  // 设置表单初始值
+  editRemarkForm.friend_id = friend.id
+  editRemarkForm.remark = friend.username || ''
+  
+  // 找到好友当前所在的分组
+  const currentGroup = friendGroups.value.find(group => 
+    group.members.some(member => member.id === friend.id)
+  )
+  editRemarkForm.group_id = currentGroup ? currentGroup.group_id : ''
+  
+  showEditRemark.value = true
+}
+
+// 提交修改备注
+const submitEditRemark = async () => {
+  try {
+    const token = getToken()
+    const response = await axios.post('http://localhost:8080/im-server/friends/update', {
+      friend_id: editRemarkForm.friend_id,
+      remark: editRemarkForm.remark,
+      group_id: editRemarkForm.group_id
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+
+    if (response.status === 200) {
+      ElMessage.success('修改成功')
+      showEditRemark.value = false
+      // 刷新好友列表
+      await fetchFriendsList()
+      // 如果当前正在查看该好友的详情，更新选中好友的信息
+      if (selectedFriend.value && selectedFriend.value.id === editRemarkForm.friend_id) {
+        const updatedFriend = friendGroups.value
+          .flatMap(group => group.members)
+          .find(friend => friend.id === editRemarkForm.friend_id)
+        if (updatedFriend) {
+          selectedFriend.value = updatedFriend
+        }
+      }
+    } else {
+      ElMessage.error(response.data.msg || '修改失败')
+    }
+  } catch (error) {
+    console.error('修改备注失败:', error)
+    ElMessage.error('修改失败，请稍后重试')
+  }
 }
 
 // 删除好友
@@ -809,7 +889,7 @@ const showAddFriendDialog = async (user) => {
   await fetchFriendGroups()
   if (friendGroupOptions.value.length > 0) {
     friendForm.value.group = friendGroupOptions.value[0].group_name
-    friendForm.value.group_id = friendGroupOptions.value[0].id
+    friendForm.group_id = friendGroupOptions.value[0].id
     console.log(friendForm.value)
   }
   showAddFriend.value = true
@@ -970,6 +1050,13 @@ const onGroupChange = (groupName) => {
     friendForm.value.group_id = 0
   }
 }
+
+const showEditRemark = ref(false)
+const editRemarkForm = reactive({
+  friend_id: '',
+  remark: '',
+  group_id: ''
+})
 
 onMounted(() => {
   fetchFriendsList()
