@@ -635,7 +635,7 @@ const selectOption = async (option) => {
         aiMessages.value.push({
           sender: 'bot',
           type: 'text',
-          content: response.data.data.summary || '暂无聊天记录可供总结'
+          content: response.data.summary || '暂无聊天记录可供总结'
         })
 
         // 在总结后添加选项按钮
@@ -1231,14 +1231,12 @@ const onSearchBlur = () => {
 // 获取群聊列表时合并
 const fetchGroupList = async () => {
     const response = await request.get('/groups/my_groups')
-    if (response.code === 200) {
       // 合并所有群聊
       myGroups.value = [
-        ...(response.data.data.created_groups || []),
-        ...(response.data.data.managed_groups || []),
-        ...(response.data.data.joined_groups || [])
+        ...(response.data.created_groups || []),
+        ...(response.data.managed_groups || []),
+        ...(response.data.joined_groups || [])
       ]
-    }
 }
 
 // 获取成员角色
