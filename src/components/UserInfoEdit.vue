@@ -4,9 +4,10 @@
       <el-form-item label="头像">
         <el-upload
           class="avatar-uploader"
-          action="http://localhost:8080/im-server/upload-avatar"
+          action="#"
           :show-file-list="false"
-          :on-success="handleAvatarSuccess"
+          :auto-upload="false"
+          :on-change="handleAvatarChange"
           :before-upload="beforeAvatarUpload"
         >
           <img v-if="form.avatarUrl" :src="form.avatarUrl" class="avatar" />
@@ -50,6 +51,8 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import { uploadAvatar } from '../api/upload'
 
 const props = defineProps({
   visible: {
@@ -102,24 +105,56 @@ const handleCancel = () => {
   dialogVisible.value = false
 }
 
-// 保存修改
-const handleSave = () => {
-  emit('save', { ...form.value })
-  dialogVisible.value = false
-}
+// 处理头像选择
+const handleAvatarChange = (file) => {
+  if (!file) return
+  
+  // 检查文件大小（限制为2MB）
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isLt2M) {
+    ElMessage.error('头像图片大小不能超过 2MB!')
+    return
+  }
 
-// 处理头像上传成功
-const handleAvatarSuccess = (response, file) => {
-  form.value.avatarUrl = URL.createObjectURL(file.raw);  // 显示上传后的头像
+  // 显示预览
+  form.value.avatarUrl = URL.createObjectURL(file.raw)
+  
+  // 上传文件
+  uploadAvatar(file.raw)
+    .then(response => {
+      if (response.status === 200) {
+        // 使用后端返回的avatar_url
+        form.value.avatarUrl = response.data.data.avatar_url
+        ElMessage.success('头像上传成功')
+      } else {
+        ElMessage.error(response.data.message || '头像上传失败')
+      }
+    })
+    .catch(error => {
+      console.error('上传失败:', error)
+      ElMessage.error('头像上传失败')
+    })
 }
 
 // 限制头像上传的文件类型
 const beforeAvatarUpload = (file) => {
-  const isImage = file.type.startsWith('image/');
+  const isImage = file.type.startsWith('image/')
   if (!isImage) {
-    this.$message.error('上传头像图片只能是 JPG/PNG 格式!');
+    ElMessage.error('上传头像图片只能是图片格式!')
+    return false
   }
-  return isImage;
+  return true
+}
+
+// 保存修改
+const handleSave = () => {
+  // 构建要保存的数据
+  const saveData = {
+    ...form.value,
+    avatar_url: form.value.avatarUrl // 使用完整的URL
+  }
+  emit('save', saveData)
+  dialogVisible.value = false
 }
 </script>
 
