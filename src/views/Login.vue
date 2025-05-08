@@ -52,6 +52,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useStore } from 'vuex'
 import { ElNotification } from 'element-plus'
+import { startTokenCheck } from '../utils/tokenCheck'
 
 const router = useRouter()
 const store = useStore()
@@ -86,6 +87,9 @@ const handleLogin = async () => {
     console.log("用户登录的信息"+userInfoResponse.data.data)
     // 使用vuex 保存用户信息
     await store.dispatch('updateUserInfo', userInfoResponse.data.data)
+
+    // 启动 token 检查
+    startTokenCheck()
 
     // 显示登录成功的通知
     ElNotification({

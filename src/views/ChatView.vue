@@ -222,7 +222,7 @@
           <el-avatar :size="80" :src="selectedMember.avatar" />
           <div class="basic-info">
             <h2>{{ selectedMember.nickname || selectedMember.name }}</h2>
-            <div class="account">账号：{{ selectedMember.account }}</div>
+            <div class="account">账号：{{ selectedMember.id }}</div>
             <div class="status">
               <span class="status-dot"></span>
               {{ selectedMember.status }}

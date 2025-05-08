@@ -60,10 +60,8 @@ service.interceptors.response.use(
       switch (error.response.status) {
         case 401:
           message = '未授权，请重新登录'
-          // 清除本地token
           localStorage.removeItem('token')
-          // 跳转到登录页
-          router.push('/login')
+          router.replace('/login')
           break
         case 403:
           message = '拒绝访问'

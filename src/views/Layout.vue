@@ -97,6 +97,7 @@ import axios from 'axios'
 import UserInfoEdit from '../components/UserInfoEdit.vue'
 import { getToken } from '../utils/utils.js'
 import { ElNotification } from 'element-plus'
+import { stopTokenCheck } from '../utils/tokenCheck'
 
 const router = useRouter()
 const route = useRoute()
@@ -190,6 +191,8 @@ const handleCommand = async (command) => {
         })
         // 清除本地存储的 token
         localStorage.removeItem('token')
+        // 停止 token 检查
+        stopTokenCheck()
         await router.push('/login')
       } catch (error) {
         console.error('退出登录失败:', error.response.data)
