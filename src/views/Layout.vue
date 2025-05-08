@@ -109,8 +109,8 @@ const showEditDialog = ref(false)
 const userInfo = computed(() => store.state.userInfo)
 
 const menuItems = [
-  { label: '消息', path: '/chat', badge: 3 },
-  { label: '联系人', path: '/contact', badge: 1 },
+  { label: '消息', path: '/chat' },
+  { label: '联系人', path: '/contact'},
   { label: 'AI助手', path: '/ai' },
 ]
 

@@ -103,11 +103,11 @@
           <div class="notification-links">
             <div class="notice-link" @click="showNotice('friend')">
               好友通知
-              <el-badge :value="3" class="notice-badge" />
+<!--              <el-badge :value="3" class="notice-badge" />-->
             </div>
             <div class="notice-link" @click="showNotice('group')">
               群通知
-              <el-badge :value="2" class="notice-badge" />
+<!--              <el-badge :value="2" class="notice-badge" />-->
             </div>
           </div>
           <!-- 原有的 tabs 内容 -->

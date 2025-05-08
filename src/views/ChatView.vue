@@ -1058,7 +1058,8 @@ const sendMessage = async () => {
       content: messageText.value,
       messageType: currentChat.value.type === 'group' ? 'group' : 'private', // 根据聊天类型设置消息类型
       groupId: currentChat.value.type === 'group' ? currentChat.value.id : null, // 如果是群聊，设置群ID
-      receiverId: currentChat.value.type === 'personal' ? currentChat.value.id : null // 如果是私聊，设置接收者ID
+      receiverId: currentChat.value.type === 'personal' ? currentChat.value.id : null, // 如果是私聊，设置接收者ID
+      createdAt: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }).replace(/\//g, '-').replace(/,/g, 'T') + '+08:00'
     }
     ws.send(JSON.stringify(newMessage))
     if (!currentChat.value.messages) {
