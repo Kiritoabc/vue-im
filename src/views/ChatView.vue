@@ -356,7 +356,7 @@
   </div>
 </template>
 <script setup>
-import {ref, watch, computed, onMounted, onUnmounted, nextTick} from 'vue'
+import {ref, watch, computed, onMounted, onUnmounted, nextTick, h} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from "axios";
 import {ElMessage, ElNotification} from "element-plus";
@@ -926,10 +926,26 @@ const connectWebSocket = () => {
             // 显示消息通知
             ElNotification({
               title: message.senderName,
-              message: message.content,
-              type: 'info',
+              message: h('div', { class: 'notification-content' }, [
+                h('img', {
+                  src: message.avatar,
+                  class: 'notification-avatar',
+                  style: {
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    marginRight: '10px'
+                  }
+                }),
+                h('div', { class: 'notification-message' }, [
+                  h('div', { class: 'notification-sender' }, message.senderName),
+                  h('div', { class: 'notification-text' }, message.content)
+                ])
+              ]),
+              type: 'success',
               duration: 5000,
               position: 'top-right',
+              customClass: 'custom-notification',
               onClick: () => {
                 // 点击通知时跳转到对应的聊天页面
                 router.push(`/chat/personal/${message.senderId}`)
@@ -943,16 +959,18 @@ const connectWebSocket = () => {
           // 当前消息
           if (currentChat.value.type === 'personal') {
             currentChat.value.messages.push(newMessage)
+          } else {
+            // 将消息添加到chatList中去
+            const chat = chatList.value.find(chat =>
+                chat.id === message.senderId &&
+                chat.type === 'personal')
+            if (chat) {
+              chat.lastMessage = newMessage.content
+              chat.messages = chat.messages || []
+              chat.messages.push(newMessage)
+            }
           }
-          // 将消息添加到chatList中去
-          const chat = chatList.value.find(chat =>
-              chat.id === message.senderId &&
-              chat.type === 'personal')
-          if (chat) {
-            chat.lastMessage = newMessage.content
-            chat.messages = chat.messages || []
-            chat.messages.push(newMessage)
-          }
+
         }
       } else if (message.messageType === 'group') {
         // 处理群聊消息
@@ -965,10 +983,26 @@ const connectWebSocket = () => {
             // 显示消息通知
             ElNotification({
               title: `${message.senderName} - ${message.groupName || '群聊'}`,
-              message: message.content,
-              type: 'info',
+              message: h('div', { class: 'notification-content' }, [
+                h('img', {
+                  src: message.avatar,
+                  class: 'notification-avatar',
+                  style: {
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    marginRight: '10px'
+                  }
+                }),
+                h('div', { class: 'notification-message' }, [
+                  h('div', { class: 'notification-sender' }, `${message.senderName} - ${message.groupName || '群聊'}`),
+                  h('div', { class: 'notification-text' }, message.content)
+                ])
+              ]),
+              type: 'success',
               duration: 5000,
               position: 'top-right',
+              customClass: 'custom-notification',
               onClick: () => {
                 // 点击通知时跳转到对应的群聊页面
                 router.push(`/chat/group/${message.groupId}`)
@@ -982,15 +1016,16 @@ const connectWebSocket = () => {
           // 当前消息
           if (currentChat.value.type === 'group') {
             currentChat.value.messages.push(newMessage)
-          }
-          // 将消息添加到chatList中去
-          const chat = chatList.value.find(chat =>
-              chat.id === message.groupId &&
-              chat.type === 'group')
-          if (chat) {
-            chat.lastMessage = newMessage.content
-            chat.messages = chat.messages || []
-            chat.messages.push(newMessage)
+          } else {
+            // 将消息添加到chatList中去
+            const chat = chatList.value.find(chat =>
+                chat.id === message.groupId &&
+                chat.type === 'group')
+            if (chat) {
+              chat.lastMessage = newMessage.content
+              chat.messages = chat.messages || []
+              chat.messages.push(newMessage)
+            }
           }
         }
       }
@@ -1935,6 +1970,39 @@ const fetchGroupList = async () => {
   color: #999;
   padding: 4px 12px 2px 12px;
   background: #f7f7f7;
+}
+
+:deep(.custom-notification) {
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.notification-content) {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+
+:deep(.notification-message) {
+  flex: 1;
+}
+
+:deep(.notification-sender) {
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: #303133;
+}
+
+:deep(.notification-text) {
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+:deep(.el-notification__title) {
+  font-weight: bold;
+  margin-bottom: 8px;
 }
 
 </style>
