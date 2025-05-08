@@ -187,9 +187,14 @@
       <div class="group-members">
         <div class="section-header">
           <h3>群成员 ({{ groupMembers.length }})</h3>
-          <el-button type="primary" size="small" @click="showInviteDialog">
-            <el-icon><Plus /></el-icon>邀请好友
-          </el-button>
+          <div class="header-actions">
+            <el-button v-if="isGroupOwner" type="text" @click="showMemberSettings">
+              <el-icon><Setting /></el-icon>
+            </el-button>
+            <el-button type="primary" size="small" @click="showInviteDialog">
+              <el-icon><Plus /></el-icon>邀请好友
+            </el-button>
+          </div>
         </div>
         <div class="members-list">
           <div v-for="member in groupMembers"
@@ -378,6 +383,32 @@
       </div>
     </div>
 
+    <!-- 添加群成员设置对话框 -->
+    <el-dialog v-model="showMemberSettingsDialog" title="群成员管理" width="500px">
+      <div class="member-settings">
+        <div v-for="member in groupMembers" :key="member.id" class="member-setting-item">
+          <div class="member-info">
+            <el-avatar :size="40" :src="member.avatar" />
+            <span class="member-name">{{ member.name }}</span>
+            <span class="member-role-tag" :class="'role-' + member.role">
+              {{ getRoleText(member.role) }}
+            </span>
+          </div>
+          <div class="member-actions">
+            <el-select
+              v-if="member.role !== 'owner'"
+              v-model="member.role"
+              size="small"
+              @change="(value) => updateMemberRole(member.id, value)"
+            >
+              <el-option label="管理员" value="admin" />
+              <el-option label="普通成员" value="member" />
+            </el-select>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
   </div>
 </template>
 <script setup>
@@ -386,7 +417,7 @@ import { useRouter, useRoute } from 'vue-router'
 import request from '../utils/request'
 import {ElMessage, ElNotification} from "element-plus";
 import store from "../store/index.js";
-import {Edit, Plus, Position, Search} from '@element-plus/icons-vue'
+import {Edit, Plus, Position, Search, Setting} from '@element-plus/icons-vue'
 import { Close, ChatDotRound, Rank, ChatLineRound } from '@element-plus/icons-vue'
 
 const formatTime = (timestamp) => {
@@ -514,14 +545,13 @@ const sendAIMessage = async () => {
   aiMessages.value.push({
     sender: 'user',
     type: 'text',
-    content: '小A发送你好我是菠萝，小B发送你好呀。'+aiInputMessage.value,
+    content: aiInputMessage.value,
     id: Date.now()
   })
 
-  const userInput =  aiInputMessage.value
   aiInputMessage.value = ''
   scrollToBottom()
-  const userInput2 = '小A发送你好我是菠萝，小B发送你好呀。'+ aiInputMessage.value
+  const userInput2 = aiInputMessage.value
   // 显示AI正在输入
   aiTyping.value = true
 
@@ -1256,6 +1286,37 @@ const getRoleText = (role) => {
       return '成员'
     default:
       return ''
+  }
+}
+
+// 添加群成员设置相关的响应式变量
+const showMemberSettingsDialog = ref(false)
+
+// 判断当前用户是否为群主
+const isGroupOwner = computed(() => {
+  const currentMember = groupMembers.value.find(member => member.id === userInfo.value.id)
+  return currentMember?.role === 'owner'
+})
+
+// 显示群成员设置对话框
+const showMemberSettings = () => {
+  showMemberSettingsDialog.value = true
+}
+
+// 更新群成员角色
+const updateMemberRole = async (memberId, newRole) => {
+  try {
+    await request.post('/groups/update_member_role', {
+      group_id: currentChatId.value,
+      member_id: memberId,
+      role: newRole
+    })
+    ElMessage.success('角色更新成功')
+    // 重新获取群成员列表
+    await fetchGroupMembers(currentChatId.value)
+  } catch (error) {
+    console.error('更新成员角色失败:', error)
+    ElMessage.error('更新角色失败')
   }
 }
 
@@ -2211,6 +2272,45 @@ const getRoleText = (role) => {
 .message-role-tag.role-member {
   background: #cce5ff;
   color: #2563eb;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.member-settings {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.member-setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.member-setting-item:last-child {
+  border-bottom: none;
+}
+
+.member-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.member-name {
+  font-size: 14px;
+  color: #333;
+}
+
+.member-actions {
+  display: flex;
+  gap: 8px;
 }
 
 </style>
