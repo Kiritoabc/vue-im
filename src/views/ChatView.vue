@@ -383,7 +383,7 @@
 <script setup>
 import {ref, watch, computed, onMounted, onUnmounted, nextTick, h} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import axios from "axios";
+import request from '../utils/request'
 import {ElMessage, ElNotification} from "element-plus";
 import store from "../store/index.js";
 import {Edit, Plus, Position, Search} from '@element-plus/icons-vue'
@@ -624,16 +624,10 @@ const selectOption = async (option) => {
       response = '您可以在下方输入关键词，我会为您搜索相关支持文章。'
     } else if (option.value === 'ticket') {
       try {
-        const token = localStorage.getItem('token')
-        const response = await axios.post('http://localhost:8080/im-server/chat/summary', {
+        const response = await request.post('/chat/summary', {
           chat_type: route.path.includes('group') ? 'group' : 'private',
           user_id: userInfo.value.id,
           to_id: currentChatId.value
-        }, {
-          headers: {
-            'Content-Type': 'application/json',
-            'token': token
-          }
         })
 
         aiTyping.value = false
@@ -739,22 +733,15 @@ const inviteFriends = async () => {
   }
 
   try {
-    const token = localStorage.getItem('token')
-    await axios.post('http://localhost:8080/im-server/groups/invite', {
+    await request.post('/groups/invite', {
       group_id: currentChatId.value,
       friend_ids: selectedFriends.value
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'token': token
-      }
     })
 
     ElMessage.success('邀请发送成功')
     showInvite.value = false
   } catch (error) {
     console.error('邀请好友失败:', error)
-    ElMessage.error('邀请失败，请稍后重试')
   }
 }
 
@@ -762,25 +749,18 @@ const inviteFriends = async () => {
 // 获取聊天列表数据
 const fetchChatList = async () => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await axios.get('http://localhost:8080/im-server/friends/usr/friends_chat', {
-      headers: {
-        'Content-Type': 'application/json',
-        'token': token
-      }
-    })
+    const response = await request.get('/friends/usr/friends_chat')
     // 转换后台数据格式以匹配前端需求
-    chatList.value = response.data.data.map(chat => ({
+    chatList.value = response.data.map(chat => ({
       id: chat.id,
-      name: chat.name || chat.nickname, // 根据实际后台字段调整
+      name: chat.name || chat.nickname,
       avatar: chat.avatar,
       lastMessage: chat.lastMessage || '暂无消息',
-      type: chat.type || 'personal', // 根据实际后台字段调整
-      messages: chat.messages || [] // 如果后台直接提供消息列表
+      type: chat.type || 'personal',
+      messages: chat.messages || []
     }))
   } catch (error) {
     console.error('获取聊天列表失败:', error)
-    ElMessage.error('获取聊天列表失败')
   }
 }
 
@@ -790,17 +770,9 @@ const friends = ref([])
 // 添加获取好友列表的方法
 const fetchFriendsList = async () => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await axios.get('http://localhost:8080/im-server/friends/all', {
-      headers: {
-        'Content-Type': 'application/json',
-        'token': token
-      }
-    })
-
-    if (response.status === 200) {
-      // 转换数据格式以匹配前端需求
-      friends.value = response.data.data.map(friend => ({
+    const response = await request.get('/friends/all')
+    if (response.code === 200) {
+      friends.value = response.data.map(friend => ({
         id: friend.id,
         name: friend.name,
         avatar: friend.avatar,
@@ -814,7 +786,6 @@ const fetchFriendsList = async () => {
     }
   } catch (error) {
     console.error('获取好友列表失败:', error)
-    ElMessage.error('获取好友列表失败')
   }
 }
 
@@ -927,20 +898,13 @@ const selectChat = (chat) => {
 // 添加获取群成员的方法
 const fetchGroupMembers = async (groupId) => {
   try {
-    const token = localStorage.getItem('token')
-    const response = await axios.get(`http://localhost:8080/im-server/groups/members`, {
+    const response = await request.get('/groups/members', {
       params: {
         group_id: groupId
-      },
-      headers: {
-        'Content-Type': 'application/json',
-        'token': token
       }
     })
-
-    if (response.status === 200) {
-      // 转换数据格式
-      groupMembers.value = response.data.data.map(member => ({
+    if (response.code === 200) {
+      groupMembers.value = response.data.map(member => ({
         id: member.id,
         name: member.username,
         avatar: member.avatar_url,
@@ -950,12 +914,11 @@ const fetchGroupMembers = async (groupId) => {
         gender: member.gender,
         city: member.city,
         joinTime: member.created_at,
-        role: member.role // 新增
+        role: member.role
       }))
     }
   } catch (error) {
     console.error('获取群成员失败:', error)
-    ElMessage.error('获取群成员失败')
   }
 }
 
@@ -1107,7 +1070,6 @@ const connectWebSocket = () => {
   }
   ws.onerror = (error) => {
     console.error('WebSocket 错误:', error)
-    ElMessage.error('连接出错，正在重试...')
   }
 }
 
@@ -1268,15 +1230,8 @@ const onSearchBlur = () => {
 
 // 获取群聊列表时合并
 const fetchGroupList = async () => {
-  try {
-    const token = localStorage.getItem('token')
-    const response = await axios.get('http://localhost:8080/im-server/groups/my_groups', {
-      headers: {
-        'Content-Type': 'application/json',
-        'token': token
-      }
-    })
-    if (response.status === 200) {
+    const response = await request.get('/groups/my_groups')
+    if (response.code === 200) {
       // 合并所有群聊
       myGroups.value = [
         ...(response.data.data.created_groups || []),
@@ -1284,10 +1239,6 @@ const fetchGroupList = async () => {
         ...(response.data.data.joined_groups || [])
       ]
     }
-  } catch (error) {
-    console.error('获取群聊列表失败:', error)
-    ElMessage.error('获取群聊列表失败')
-  }
 }
 
 // 获取成员角色
