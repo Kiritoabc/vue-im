@@ -332,7 +332,7 @@
           <div v-for="(msg, index) in aiMessages" :key="index"
                :class="['ai-message', { 'ai-message-bot': msg.sender === 'bot', 'ai-message-user': msg.sender === 'user' }]">
             <div v-if="msg.sender === 'bot'" class="ai-avatar">
-              <el-avatar :size="30" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" />
+              <el-avatar :size="30" src="https://cdn.jsdelivr.net/gh/Kiritoabc/my_cdn/img/header.jpg" />
             </div>
             <div class="ai-message-content">
               <template v-if="msg.type === 'text'">{{ msg.content }}</template>
@@ -566,6 +566,16 @@ const sendAIMessage = async () => {
         aiMessage.id = Date.now()
       }
       aiTyping.value = false
+
+      // 在消息完成后添加选项
+      aiMessages.value.push({
+        sender: 'bot',
+        type: 'options',
+        options: [
+          { label: '上下文总结', value: 'ticket' }
+        ]
+      })
+      scrollToBottom()
     }
 
     ws.onerror = (error) => {
@@ -634,6 +644,15 @@ const selectOption = async (option) => {
           content: response.data.data.summary || '暂无聊天记录可供总结'
         })
 
+        // 在总结后添加选项按钮
+        aiMessages.value.push({
+          sender: 'bot',
+          type: 'options',
+          options: [
+            { label: '上下文总结', value: 'ticket' }
+          ]
+        })
+
       } catch (error) {
         console.error('获取聊天总结失败:', error)
         aiTyping.value = false
@@ -646,11 +665,13 @@ const selectOption = async (option) => {
     }
 
     // 添加机器人回复
-    aiMessages.value.push({
-      sender: 'bot',
-      type: 'text',
-      content: response
-    })
+    if (response) {
+      aiMessages.value.push({
+        sender: 'bot',
+        type: 'text',
+        content: response
+      })
+    }
 
     aiTyping.value = false
 
