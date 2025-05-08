@@ -801,8 +801,11 @@ const inviteFriends = async () => {
 
     ElMessage.success('邀请发送成功')
     showInvite.value = false
+    // 重新获取群成员列表
+    await fetchGroupMembers(currentChatId.value)
   } catch (error) {
     console.error('邀请好友失败:', error)
+    ElMessage.error('邀请好友失败')
   }
 }
 

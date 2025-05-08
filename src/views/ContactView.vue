@@ -353,7 +353,7 @@
           <div class="action-buttons">
             <el-button type="primary" @click="enterGroup(selectedGroup)">发送消息</el-button>
             <el-button @click="showGroupMembers(selectedGroup)">查看成员</el-button>
-            <el-button type="danger" @click="quitGroup(selectedGroup)">退出群聊</el-button>
+            <el-button type="danger" @click="confirmQuitGroup(selectedGroup)">退出群聊</el-button>
           </div>
         </div>
       </div>
@@ -399,6 +399,28 @@
       </template>
     </el-dialog>
 
+    <!-- 添加退出群聊确认对话框 -->
+    <el-dialog
+      v-model="showQuitConfirmDialog"
+      title="退出群聊"
+      width="400px"
+      :show-close="true"
+      :close-on-click-modal="false"
+      class="quit-group-dialog"
+    >
+      <div class="quit-confirm-content">
+        <el-icon class="warning-icon"><Warning /></el-icon>
+        <p>确定要退出群聊 <span class="group-name">{{ groupToQuit?.name }}</span> 吗？</p>
+        <p class="warning-text">退出后将无法继续访问群聊内容</p>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showQuitConfirmDialog = false">取消</el-button>
+          <el-button type="danger" @click="quitGroup">确定退出</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -408,8 +430,9 @@ import { useRouter } from 'vue-router'
 import NoticeList from '../components/NoticeList.vue'
 import { getToken } from '../utils/utils.js'
 import axios from 'axios'
+import request from '../utils/request'
 import { ElNotification } from 'element-plus' // 导入 ElNotification
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Warning } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { ElMessageBox } from 'element-plus'
 
@@ -675,17 +698,17 @@ const sendMessage = (friend) => {
 const editRemark = async (friend) => {
   // 获取好友分组列表
   await fetchFriendGroups()
-  
+
   // 设置表单初始值
   editRemarkForm.friend_id = friend.id
   editRemarkForm.remark = friend.username || ''
-  
+
   // 找到好友当前所在的分组
-  const currentGroup = friendGroups.value.find(group => 
+  const currentGroup = friendGroups.value.find(group =>
     group.members.some(member => member.id === friend.id)
   )
   editRemarkForm.group_id = currentGroup ? currentGroup.group_id : ''
-  
+
   showEditRemark.value = true
 }
 
@@ -787,8 +810,24 @@ const editAnnouncement = () => {
 }
 
 // 退出群聊
-const quitGroup = (group) => {
-  // 实现退出群聊的逻辑
+const quitGroup = async () => {
+  if (!groupToQuit.value) return
+
+  try {
+    await request.post('/groups/quit', {
+      group_id: groupToQuit.value.id
+    })
+
+    ElMessage.success('已退出群聊')
+    showQuitConfirmDialog.value = false
+    // 重新获取群聊列表
+    await fetchGroupList()
+    // 清空当前选中的群聊
+    selectedGroup.value = null
+  } catch (error) {
+    console.error('退出群聊失败:', error)
+    ElMessage.error('退出群聊失败')
+  }
 }
 
 // 搜索好友
@@ -1044,6 +1083,16 @@ const editRemarkForm = reactive({
   remark: '',
   group_id: ''
 })
+
+// 添加退出群聊相关的响应式变量
+const showQuitConfirmDialog = ref(false)
+const groupToQuit = ref(null)
+
+// 确认退出群聊
+const confirmQuitGroup = (group) => {
+  groupToQuit.value = group
+  showQuitConfirmDialog.value = true
+}
 
 onMounted(() => {
   fetchFriendsList()
@@ -1615,5 +1664,64 @@ onMounted(() => {
   margin-left: 8px;
   font-size: 14px;
   color: #333;
+}
+
+.quit-group-dialog :deep(.el-dialog) {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.quit-group-dialog :deep(.el-dialog__header) {
+  margin: 0;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.quit-group-dialog :deep(.el-dialog__title) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.quit-group-dialog :deep(.el-dialog__body) {
+  padding: 0;
+}
+
+.quit-group-dialog :deep(.el-dialog__footer) {
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.quit-confirm-content {
+  text-align: center;
+  padding: 32px 24px;
+  background: #fff;
+}
+
+.quit-confirm-content .warning-icon {
+  font-size: 48px;
+  color: #f56c6c;
+  margin-bottom: 16px;
+}
+
+.quit-confirm-content p {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  line-height: 1.6;
+}
+
+.quit-confirm-content .group-name {
+  color: #409EFF;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.quit-confirm-content .warning-text {
+  margin-top: 8px !important;
+  font-size: 14px !important;
+  color: #909399 !important;
 }
 </style>
