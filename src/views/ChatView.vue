@@ -68,7 +68,21 @@
             :class="['message', { 'message-self': msg.senderId === mockUser.id }]" @click="showSenderInfo(msg)">
             <el-avatar :src="msg.avatar" />
             <div class="message-content">
-              <div class="message-sender">{{ msg.senderName }}{{ formatTime(msg.createdAt)}}</div>
+              <div class="message-sender">
+                {{ msg.senderName }}
+                <!-- 添加角色标签 -->
+                <span v-if="isGroupChat"
+                  class="message-role-tag"
+                  :class="{
+                    'role-owner': getMemberRole(msg.senderId) === 'owner',
+                    'role-admin': getMemberRole(msg.senderId) === 'admin',
+                    'role-member': getMemberRole(msg.senderId) === 'member'
+                  }"
+                >
+                  {{ getRoleText(getMemberRole(msg.senderId)) }}
+                </span>
+<!--                {{ formatTime(msg.createdAt)}}-->
+              </div>
               <div class="message-text">{{ msg.content }}</div>
               <div class="message-actions">
                 <el-button type="text" size="small" @click.stop="replyToMessage(msg)">
@@ -182,6 +196,16 @@
                class="member-item"
                @click="showMemberInfo(member)">
             <el-avatar :src="member.avatar" />
+            <span
+              class="member-role-tag"
+              :class="{
+                'role-owner': member.role === 'owner',
+                'role-admin': member.role === 'admin',
+                'role-member': member.role === 'member'
+              }"
+            >
+              {{ member.role === 'owner' ? '群主' : member.role === 'admin' ? '管理员' : '成员' }}
+            </span>
             <span class="member-name">{{ member.name }}</span>
           </div>
         </div>
@@ -883,7 +907,8 @@ const fetchGroupMembers = async (groupId) => {
         bio: member.bio,
         gender: member.gender,
         city: member.city,
-        joinTime: member.created_at
+        joinTime: member.created_at,
+        role: member.role // 新增
       }))
     }
   } catch (error) {
@@ -921,7 +946,7 @@ const connectWebSocket = () => {
         if (message.receiverId === userInfo.value.id) {
           // 检查是否在当前聊天页面
           const isCurrentChat = route.path === `/chat/personal/${message.senderId}`
-          
+
           if (!isCurrentChat) {
             // 显示消息通知
             ElNotification({
@@ -978,7 +1003,7 @@ const connectWebSocket = () => {
         if (message.groupId === currentChat.value.id) {
           // 检查是否在当前聊天页面
           const isCurrentChat = route.path === `/chat/group/${message.groupId}`
-          
+
           if (!isCurrentChat) {
             // 显示消息通知
             ElNotification({
@@ -1220,6 +1245,26 @@ const fetchGroupList = async () => {
   } catch (error) {
     console.error('获取群聊列表失败:', error)
     ElMessage.error('获取群聊列表失败')
+  }
+}
+
+// 获取成员角色
+const getMemberRole = (senderId) => {
+  const member = groupMembers.value.find(m => m.id === senderId)
+  return member ? member.role : 'member'
+}
+
+// 获取角色显示文本
+const getRoleText = (role) => {
+  switch (role) {
+    case 'owner':
+      return '群主'
+    case 'admin':
+      return '管理员'
+    case 'member':
+      return '成员'
+    default:
+      return ''
   }
 }
 
@@ -2004,6 +2049,64 @@ const fetchGroupList = async () => {
 :deep(.el-notification__title) {
   font-weight: bold;
   margin-bottom: 8px;
+}
+
+.member-role-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: bold;
+  margin: 0 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  vertical-align: middle;
+}
+.role-owner {
+  background: #ffe066;
+  color: #b8860b;
+}
+.role-admin {
+  background: #e0c3fc;
+  color: #7c3aed;
+}
+.role-member {
+  background: #cce5ff;
+  color: #2563eb;
+}
+
+.message-role-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: bold;
+  margin: 0 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  vertical-align: middle;
+}
+
+.message-sender {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* 复用之前的角色样式 */
+.message-role-tag.role-owner {
+  background: #ffe066;
+  color: #b8860b;
+}
+
+.message-role-tag.role-admin {
+  background: #e0c3fc;
+  color: #7c3aed;
+}
+
+.message-role-tag.role-member {
+  background: #cce5ff;
+  color: #2563eb;
 }
 
 </style>
