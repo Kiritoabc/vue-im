@@ -359,7 +359,7 @@
 import {ref, watch, computed, onMounted, onUnmounted, nextTick} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from "axios";
-import {ElMessage} from "element-plus";
+import {ElMessage, ElNotification} from "element-plus";
 import store from "../store/index.js";
 import {Edit, Plus, Position, Search} from '@element-plus/icons-vue'
 import { Close, ChatDotRound, Rank, ChatLineRound } from '@element-plus/icons-vue'
@@ -919,10 +919,29 @@ const connectWebSocket = () => {
         // 处理私聊消息
         console.log("获取到私聊的消息")
         if (message.receiverId === userInfo.value.id) {
+          // 检查是否在当前聊天页面
+          const isCurrentChat = route.path === `/chat/personal/${message.senderId}`
+          
+          if (!isCurrentChat) {
+            // 显示消息通知
+            ElNotification({
+              title: message.senderName,
+              message: message.content,
+              type: 'info',
+              duration: 5000,
+              position: 'top-right',
+              onClick: () => {
+                // 点击通知时跳转到对应的聊天页面
+                router.push(`/chat/personal/${message.senderId}`)
+              }
+            })
+          }
+
           if (!currentChat.value.messages) {
             currentChat.value.messages = []
           }
-          if (currentChat.type === 'personal') {
+          // 当前消息
+          if (currentChat.value.type === 'personal') {
             currentChat.value.messages.push(newMessage)
           }
           // 将消息添加到chatList中去
@@ -939,9 +958,28 @@ const connectWebSocket = () => {
         // 处理群聊消息
         console.log("获取到群聊的消息")
         if (message.groupId === currentChat.value.id) {
+          // 检查是否在当前聊天页面
+          const isCurrentChat = route.path === `/chat/group/${message.groupId}`
+          
+          if (!isCurrentChat) {
+            // 显示消息通知
+            ElNotification({
+              title: `${message.senderName} - ${message.groupName || '群聊'}`,
+              message: message.content,
+              type: 'info',
+              duration: 5000,
+              position: 'top-right',
+              onClick: () => {
+                // 点击通知时跳转到对应的群聊页面
+                router.push(`/chat/group/${message.groupId}`)
+              }
+            })
+          }
+
           if (!currentChat.value.messages) {
             currentChat.value.messages = []
           }
+          // 当前消息
           if (currentChat.value.type === 'group') {
             currentChat.value.messages.push(newMessage)
           }
