@@ -68,22 +68,23 @@
             :class="['message', { 'message-self': msg.senderId === mockUser.id }]" @click="showSenderInfo(msg)">
             <el-avatar :src="msg.avatar" />
             <div class="message-content">
-              <div class="message-sender">
-                {{ msg.senderName }}
-                <!-- 添加角色标签 -->
-                <span v-if="isGroupChat"
-                  class="message-role-tag"
-                  :class="{
-                    'role-owner': getMemberRole(msg.senderId) === 'owner',
-                    'role-admin': getMemberRole(msg.senderId) === 'admin',
-                    'role-member': getMemberRole(msg.senderId) === 'member'
-                  }"
-                >
-                  {{ getRoleText(getMemberRole(msg.senderId)) }}
-                </span>
-<!--                {{ formatTime(msg.createdAt)}}-->
+              <div class="message-info">
+                <div class="message-sender">
+                  {{ msg.senderName }}
+                  <!-- 添加角色标签 -->
+                  <span v-if="isGroupChat"
+                    class="message-role-tag"
+                    :class="{
+                      'role-owner': getMemberRole(msg.senderId) === 'owner',
+                      'role-admin': getMemberRole(msg.senderId) === 'admin',
+                      'role-member': getMemberRole(msg.senderId) === 'member'
+                    }"
+                  >
+                    {{ getRoleText(getMemberRole(msg.senderId)) }}
+                  </span>
+                </div>
+                <div class="message-text">{{ msg.content }}</div>
               </div>
-              <div class="message-text">{{ msg.content }}</div>
               <div class="message-actions">
                 <el-button type="text" size="small" @click.stop="replyToMessage(msg)">
                   <el-icon><ChatLineRound /></el-icon> 回复
@@ -434,7 +435,7 @@ const aiMessages = ref([
     sender: 'bot',
     type: 'options',
     options: [
-      { label: '搜索支持文章', value: 'search' },
+      // { label: '搜索支持文章', value: 'search' },
       { label: '上下文总结', value: 'ticket' },
     ]
   }
@@ -1301,6 +1302,7 @@ const getRoleText = (role) => {
   display: flex;
   margin-bottom: 20px;
   align-items: flex-start;
+  gap: 12px;
 }
 
 .message-self {
@@ -1308,25 +1310,79 @@ const getRoleText = (role) => {
 }
 
 .message-content {
-  margin: 0 10px;
   max-width: 80%;
 }
 
-.message-self .message-content {
-  text-align: right;
+.message-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-self .message-info {
+  align-items: flex-end;
 }
 
 .message-sender {
   font-size: 12px;
   color: #999;
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .message-text {
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: #1e1e1e;
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   background-color: #fff;
-  padding: 10px;
-  border-radius: 4px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  word-break: break-word;
+}
+
+.message-self .message-text {
+  background: #dcf8c6;
+  color: #1e1e1e;
+}
+
+.message-actions {
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-top: 4px;
+}
+
+.message:hover .message-actions {
+  opacity: 1;
+}
+
+.message-role-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 1px 6px;
+  border-radius: 8px;
+  vertical-align: middle;
+}
+
+/* 保持原有的角色样式 */
+.message-role-tag.role-owner {
+  background: #ffe066;
+  color: #b8860b;
+}
+
+.message-role-tag.role-admin {
+  background: #e0c3fc;
+  color: #7c3aed;
+}
+
+.message-role-tag.role-member {
+  background: #cce5ff;
+  color: #2563eb;
 }
 
 .chat-input {
@@ -1740,6 +1796,32 @@ const getRoleText = (role) => {
   gap: 12px;
 }
 
+.message-self {
+  flex-direction: row-reverse;
+}
+
+.message-content {
+  max-width: 80%;
+}
+
+.message-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-self .message-info {
+  align-items: flex-end;
+}
+
+.message-sender {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
 
 .message-text {
   padding: 8px 12px;
@@ -1748,6 +1830,8 @@ const getRoleText = (role) => {
   font-size: 14px;
   line-height: 1.4;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  background-color: #fff;
+  word-break: break-word;
 }
 
 .message-self .message-text {
@@ -1755,11 +1839,41 @@ const getRoleText = (role) => {
   color: #1e1e1e;
 }
 
-.message-time {
-  font-size: 11px;
-  color: #8696a0;
+.message-actions {
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.2s;
   margin-top: 4px;
-  text-align: right;
+}
+
+.message:hover .message-actions {
+  opacity: 1;
+}
+
+.message-role-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 1px 6px;
+  border-radius: 8px;
+  vertical-align: middle;
+}
+
+/* 保持原有的角色样式 */
+.message-role-tag.role-owner {
+  background: #ffe066;
+  color: #b8860b;
+}
+
+.message-role-tag.role-admin {
+  background: #e0c3fc;
+  color: #7c3aed;
+}
+
+.message-role-tag.role-member {
+  background: #cce5ff;
+  color: #2563eb;
 }
 
 /* 输入区域样式 */
