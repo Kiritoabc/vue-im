@@ -352,7 +352,7 @@
           <!-- 操作按钮 -->
           <div class="action-buttons">
             <el-button type="primary" @click="enterGroup(selectedGroup)">发送消息</el-button>
-            <el-button @click="showGroupMembers(selectedGroup)">查看成员</el-button>
+            <el-button @click="showEditGroupDialog(selectedGroup)">修改群信息</el-button>
             <el-button type="danger" @click="confirmQuitGroup(selectedGroup)">退出群聊</el-button>
           </div>
         </div>
@@ -421,6 +421,62 @@
       </template>
     </el-dialog>
 
+    <!-- 添加修改群信息对话框 -->
+    <el-dialog
+      v-model="showEditGroup"
+      title="修改群信息"
+      width="500px"
+      :show-close="true"
+      :close-on-click-modal="false"
+      class="edit-group-dialog"
+    >
+      <div class="edit-group-content">
+        <el-form :model="editGroupForm" label-width="100px">
+          <el-form-item label="群头像">
+            <el-upload
+              class="avatar-uploader"
+              action="#"
+              :show-file-list="false"
+              :auto-upload="false"
+              :on-change="handleGroupAvatarChange"
+              :before-upload="beforeGroupAvatarUpload"
+            >
+              <img v-if="editGroupForm.avatar" :src="editGroupForm.avatar" class="avatar" />
+              <el-button size="small" type="primary">上传群头像</el-button>
+            </el-upload>
+          </el-form-item>
+
+          <el-form-item label="群名称" prop="name">
+            <el-input v-model="editGroupForm.name" placeholder="请输入群名称"></el-input>
+          </el-form-item>
+
+          <el-form-item label="群公告">
+            <el-input
+              type="textarea"
+              v-model="editGroupForm.announcement"
+              placeholder="请输入群公告"
+              :rows="4"
+            ></el-input>
+          </el-form-item>
+
+          <el-form-item label="群介绍">
+            <el-input
+              type="textarea"
+              v-model="editGroupForm.description"
+              placeholder="请输入群介绍"
+              :rows="4"
+            ></el-input>
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showEditGroup = false">取消</el-button>
+          <el-button type="primary" @click="submitEditGroup">保存</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -435,6 +491,7 @@ import { ElNotification } from 'element-plus' // 导入 ElNotification
 import { Plus, Warning } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { ElMessageBox } from 'element-plus'
+import {uploadAvatar} from "../api/upload.js";
 
 const router = useRouter()
 const searchText = ref('')
@@ -572,17 +629,6 @@ const friends = [
     birthday: '1月1日',
     location: '日本'
   },
-  {
-    id: 3,
-    nickname: '胡安（半岛铁盒）',
-    account: '9876543210',
-    status: '离开',
-    avatar: 'https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png',
-    remarkName: '胡安',
-    gender: '男',
-    birthday: '6月6日',
-    location: '中国'
-  }
 ]
 
 // 群聊列表
@@ -742,7 +788,7 @@ const submitEditRemark = async () => {
         }
       }
     } else {
-      ElMessage.error(response.data.msg || '修改失败')
+      ElMessage.error(response.data.message || '修改失败')
     }
   } catch (error) {
     console.error('修改备注失败:', error)
@@ -780,7 +826,7 @@ const deleteFriend = async (friend) => {
       await fetchFriendsList()
       selectedFriend.value = null
     } else {
-      ElMessage.error(response.data.msg || '删除失败')
+      ElMessage.error(response.data.message || '删除失败')
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -1007,7 +1053,7 @@ const createGroup = async () => {
           // 可以在这里刷新群聊列表
           await fetchGroupList() // 刷新群聊列表
         } else {
-          ElMessage.error(response.data.msg || '创建失败')
+          ElMessage.error(response.data.message || '创建失败')
         }
       } catch (error) {
         console.error('创建群聊失败:', error)
@@ -1057,7 +1103,7 @@ const createFriendGroup = async () => {
           // 重置表单
           friendGroupForm.group_name = ''
         } else {
-          ElMessage.error(response.data.msg || '创建失败')
+          ElMessage.error(response.data.message || '创建失败')
         }
       } catch (error) {
         console.error('创建分组失败:', error)
@@ -1092,6 +1138,110 @@ const groupToQuit = ref(null)
 const confirmQuitGroup = (group) => {
   groupToQuit.value = group
   showQuitConfirmDialog.value = true
+}
+
+// 添加修改群信息相关的响应式变量
+const showEditGroup = ref(false)
+const editGroupForm = ref({
+  id: '',
+  name: '',
+  avatar: '',
+  announcement: '',
+  description: ''
+})
+
+// 显示修改群信息对话框
+const showEditGroupDialog = (group) => {
+  editGroupForm.value = {
+    id: group.id,
+    name: group.name,
+    avatar: group.avatar,
+    announcement: group.announcement || '',
+    description: group.description || ''
+  }
+  showEditGroup.value = true
+}
+
+// 处理群头像选择
+const handleGroupAvatarChange = async (file) => {
+  if (!file) return
+
+  // 检查文件大小（限制为2MB）
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isLt2M) {
+    ElMessage.error('头像图片大小不能超过 2MB!')
+    return
+  }
+
+  // 显示预览
+  editGroupForm.value.avatar = URL.createObjectURL(file.raw)
+
+  // 上传文件
+  uploadAvatar(file.raw)
+    .then(response => {
+      if (response.status === 200) {
+        // 使用后端返回的avatar_url
+        editGroupForm.value.avatar = response.data.data.avatar_url
+        ElMessage.success('头像上传成功')
+      } else {
+        ElMessage.error(response.data.message || '头像上传失败')
+      }
+    })
+    .catch(error => {
+      console.error('上传失败:', error)
+      ElMessage.error('头像上传失败')
+    })
+}
+
+// 限制头像上传的文件类型
+const beforeGroupAvatarUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  if (!isImage) {
+    ElMessage.error('上传头像图片只能是图片格式!')
+    return false
+  }
+  return true
+}
+
+// 提交修改群信息
+const submitEditGroup = async () => {
+  try {
+    const token = getToken()
+    const response = await axios.post('http://localhost:8080/im-server/groups/update', {
+      group_id: editGroupForm.value.id,
+      name: editGroupForm.value.name,
+      group_avatar: editGroupForm.value.avatar,
+      announcement: editGroupForm.value.announcement,
+      description: editGroupForm.value.description
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'token': token
+      }
+    })
+
+    if (response.status === 200) {
+      ElMessage.success('群信息修改成功')
+      showEditGroup.value = false
+      // 更新当前选中的群信息
+      if (selectedGroup.value && selectedGroup.value.id === editGroupForm.value.id) {
+        selectedGroup.value = {
+          ...selectedGroup.value,
+          name: editGroupForm.value.name,
+          avatar: editGroupForm.value.avatar,
+          announcement: editGroupForm.value.announcement,
+          description: editGroupForm.value.description
+        }
+      }
+      // 重新获取群聊列表
+      await fetchGroupList()
+    } else {
+      ElMessage.error(response.data.message || '修改失败')
+    }
+  } catch (error) {
+    console.error('修改群信息失败:', error)
+    ElMessage.error('修改群信息失败，请稍后重试')
+  }
 }
 
 onMounted(() => {
@@ -1603,6 +1753,8 @@ onMounted(() => {
 .avatar-uploader {
   display: flex;
   justify-content: center;
+  margin-bottom: 20px;
+  position: relative;
 }
 
 .avatar-uploader .avatar-uploader-icon {
@@ -1617,6 +1769,29 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.avatar-uploader .avatar-uploader-icon:hover {
+  border-color: #409EFF;
+  box-shadow: 0 0 8px rgba(64, 158, 255, 0.3);
+}
+
+.avatar-uploader .avatar-uploader-icon::after {
+  content: '点击上传群头像';
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #909399;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.avatar-uploader .avatar-uploader-icon:hover::after {
+  opacity: 1;
 }
 
 .avatar-uploader .avatar-preview {
@@ -1624,6 +1799,29 @@ onMounted(() => {
   height: 100px;
   border-radius: 6px;
   object-fit: cover;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.avatar-uploader .avatar-preview:hover {
+  box-shadow: 0 0 8px rgba(64, 158, 255, 0.3);
+}
+
+.avatar-uploader .avatar-preview::after {
+  content: '点击更换群头像';
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #909399;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.avatar-uploader .avatar-preview:hover::after {
+  opacity: 1;
 }
 
 .avatar-uploader .el-upload:hover {
@@ -1723,5 +1921,60 @@ onMounted(() => {
   margin-top: 8px !important;
   font-size: 14px !important;
   color: #909399 !important;
+}
+
+/* 添加修改群信息对话框样式 */
+.edit-group-dialog :deep(.el-dialog) {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.edit-group-dialog :deep(.el-dialog__header) {
+  margin: 0;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.edit-group-dialog :deep(.el-dialog__title) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.edit-group-dialog :deep(.el-dialog__body) {
+  padding: 24px;
+}
+
+.edit-group-dialog :deep(.el-dialog__footer) {
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.edit-group-content {
+  padding: 0 20px;
+}
+
+.avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  object-fit: cover;
+}
+
+.avatar-uploader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.avatar-uploader .el-button {
+  margin-top: 10px;
+}
+
+.edit-group-dialog :deep(.el-form-item:last-child) {
+  margin-bottom: 0;
 }
 </style>
