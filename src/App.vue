@@ -1,15 +1,26 @@
 <script setup>
+import { onMounted } from 'vue'
+import { initTheme } from './utils/theme'
 // import Login from './views/Login.vue'
+
+onMounted(() => {
+  initTheme()
+})
 </script>
 
 <template>
-  <div>
+  <div id="app">
     <!-- <Login /> -->
     <router-view />
   </div>
 </template>
 
-<style scoped>
+<style>
+#app {
+  width: 100%;
+  height: 100vh;
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;

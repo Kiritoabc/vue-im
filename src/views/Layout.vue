@@ -75,6 +75,9 @@
             <el-dropdown-menu>
               <el-dropdown-item command="settings">个人设置</el-dropdown-item>
               <el-dropdown-item command="status">在线状态</el-dropdown-item>
+              <el-dropdown-item command="theme">
+                <ThemeSwitch />
+              </el-dropdown-item>
               <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -95,6 +98,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useStore } from 'vuex'
 import axios from 'axios'
 import UserInfoEdit from '../components/UserInfoEdit.vue'
+import ThemeSwitch from '../components/ThemeSwitch.vue'
 import { getToken } from '../utils/utils.js'
 import { ElNotification } from 'element-plus'
 import { stopTokenCheck } from '../utils/tokenCheck'
@@ -203,6 +207,9 @@ const handleCommand = async (command) => {
       await router.push('/settings')
       break
     case 'status':
+      break
+    case 'theme':
+      // 实现主题切换逻辑
       break
   }
 }
