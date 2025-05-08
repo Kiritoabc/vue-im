@@ -313,7 +313,6 @@
           <div class="info-section">
             <div class="section-header">
               <h3>群公告</h3>
-<!--              <el-button v-if="isGroupAdmin" size="small" @click="editAnnouncement">编辑</el-button>-->
             </div>
             <div class="announcement">{{ selectedGroup.announcement || '暂无公告' }}</div>
           </div>
@@ -326,27 +325,6 @@
             <div class="description">{{ selectedGroup.description }}</div>
           </div>
 
-          <!-- 群成员统计 -->
-          <div class="info-section">
-            <div class="section-header">
-              <h3>成员分布</h3>
-            </div>
-            <div class="member-stats">
-              <div class="stat-item">
-                <span>活跃度</span>
-                <el-progress :percentage="selectedGroup.stats.active" />
-              </div>
-              <div class="stat-item">
-                <span>男女比例</span>
-                <el-progress :percentage="selectedGroup.stats.male" color="#409EFF" />
-              </div>
-              <div class="stat-item">
-                <span>地区分布</span>
-                <el-progress :percentage="selectedGroup.stats.local" color="#67C23A" />
-              </div>
-            </div>
-          </div>
-
           <!-- 群成员列表预览 -->
           <div class="info-section">
             <div class="section-header">
@@ -355,9 +333,18 @@
             </div>
             <div class="member-preview">
               <div v-for="member in selectedGroup.previewMembers" :key="member.id" class="member-item">
+                <span
+                  class="member-role-tag"
+                  :class="{
+                    'role-owner': member.role === 'owner',
+                    'role-admin': member.role === 'admin',
+                    'role-member': member.role === 'member'
+                  }"
+                >
+                  {{ member.role === 'owner' ? '群主' : member.role === 'admin' ? '管理员' : '成员' }}
+                </span>
                 <el-avatar :size="30" :src="member.avatar" />
                 <span class="member-name">{{ member.name }}</span>
-                <span class="member-role" v-if="member.role">{{ member.role }}</span>
               </div>
             </div>
           </div>
@@ -1592,5 +1579,41 @@ onMounted(() => {
 
 .avatar-uploader .el-upload:hover {
   border-color: #409EFF;
+}
+
+.member-role-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-right: 8px;
+}
+
+.role-owner {
+  background: #ffe066;
+  color: #b8860b;
+}
+
+.role-admin {
+  background: #e0c3fc;
+  color: #7c3aed;
+}
+
+.role-member {
+  background: #cce5ff;
+  color: #2563eb;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.member-name {
+  margin-left: 8px;
+  font-size: 14px;
+  color: #333;
 }
 </style>
