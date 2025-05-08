@@ -404,9 +404,39 @@
               <el-option label="管理员" value="admin" />
               <el-option label="普通成员" value="member" />
             </el-select>
+            <el-button
+              v-if="member.role !== 'owner'"
+              type="danger"
+              size="small"
+              @click="confirmRemoveMember(member)"
+            >
+              移除
+            </el-button>
           </div>
         </div>
       </div>
+    </el-dialog>
+
+    <!-- 添加移除成员确认对话框 -->
+    <el-dialog
+      v-model="showRemoveConfirmDialog"
+      title="移除群成员"
+      width="400px"
+      :show-close="true"
+      :close-on-click-modal="false"
+      class="remove-member-dialog"
+    >
+      <div class="remove-confirm-content">
+        <el-icon class="warning-icon"><Warning /></el-icon>
+        <p>确定要将 <span class="member-name">{{ memberToRemove?.name }}</span> 移出群聊吗？</p>
+        <p class="warning-text">移出后，该成员将无法继续访问群聊内容</p>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showRemoveConfirmDialog = false">取消</el-button>
+          <el-button type="danger" @click="removeMember">确定移除</el-button>
+        </div>
+      </template>
     </el-dialog>
 
   </div>
@@ -419,6 +449,7 @@ import {ElMessage, ElNotification} from "element-plus";
 import store from "../store/index.js";
 import {Edit, Plus, Position, Search, Setting} from '@element-plus/icons-vue'
 import { Close, ChatDotRound, Rank, ChatLineRound } from '@element-plus/icons-vue'
+import { Warning } from '@element-plus/icons-vue'
 
 const formatTime = (timestamp) => {
   const date = new Date(timestamp)
@@ -1336,6 +1367,36 @@ const getMemberAvatar = (senderId) => {
       const friend = friends.value.find(f => f.id === senderId)
       return friend ? friend.avatar : ''
     }
+  }
+}
+
+// 添加移除成员相关的响应式变量
+const showRemoveConfirmDialog = ref(false)
+const memberToRemove = ref(null)
+
+// 确认移除成员
+const confirmRemoveMember = (member) => {
+  memberToRemove.value = member
+  showRemoveConfirmDialog.value = true
+}
+
+// 移除成员
+const removeMember = async () => {
+  if (!memberToRemove.value) return
+
+  try {
+    await request.post('/groups/remove_member', {
+      group_id: currentChatId.value,
+      member_id: memberToRemove.value.id
+    })
+
+    ElMessage.success('成员已移除')
+    showRemoveConfirmDialog.value = false
+    // 重新获取群成员列表
+    await fetchGroupMembers(currentChatId.value)
+  } catch (error) {
+    console.error('移除成员失败:', error)
+    ElMessage.error('移除成员失败')
   }
 }
 
@@ -2330,6 +2391,107 @@ const getMemberAvatar = (senderId) => {
 .member-actions {
   display: flex;
   gap: 8px;
+}
+
+.remove-confirm-content {
+  text-align: center;
+  padding: 10px 0;
+}
+
+.remove-confirm-content .member-name {
+  color: #409EFF;
+  font-weight: bold;
+}
+
+.member-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.member-actions .el-button {
+  margin-top: 0;
+}
+
+.remove-member-dialog :deep(.el-dialog) {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.remove-member-dialog :deep(.el-dialog__header) {
+  margin: 0;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.remove-member-dialog :deep(.el-dialog__title) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.remove-member-dialog :deep(.el-dialog__body) {
+  padding: 0;
+}
+
+.remove-member-dialog :deep(.el-dialog__footer) {
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.remove-confirm-content {
+  text-align: center;
+  padding: 32px 24px;
+  background: #fff;
+}
+
+.warning-icon {
+  font-size: 48px;
+  color: #f56c6c;
+  margin-bottom: 16px;
+}
+
+.remove-confirm-content p {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  line-height: 1.6;
+}
+
+.remove-confirm-content .member-name {
+  color: #409EFF;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.warning-text {
+  margin-top: 8px !important;
+  font-size: 14px !important;
+  color: #909399 !important;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.dialog-footer .el-button {
+  padding: 10px 24px;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.dialog-footer .el-button--danger {
+  background: #f56c6c;
+  border-color: #f56c6c;
+}
+
+.dialog-footer .el-button--danger:hover {
+  background: #f78989;
+  border-color: #f78989;
 }
 
 </style>
