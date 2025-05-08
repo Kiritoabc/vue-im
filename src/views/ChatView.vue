@@ -123,7 +123,7 @@
         <div class="member-info-header">
           <el-avatar :size="80" :src="selectedSender.avatar" />
           <div class="basic-info">
-            <h2>{{ selectedSender.senderName || selectedSender.name }}</h2>
+            <h2>{{ selectedSender.name }}</h2>
             <div class="account">账号：{{ selectedSender.account }}</div>
             <div class="status">
               <span class="status-dot"></span>
@@ -161,7 +161,7 @@
           <el-button
             v-else
             type="primary"
-            @click="sendPrivateMessage(selectedSender.senderId)">发送消息</el-button>
+            @click="sendPrivateMessage(selectedSender.id)">发送消息</el-button>
           <el-button @click="showSenderDialog = false">关闭</el-button>
         </div>
       </div>
@@ -252,7 +252,7 @@
 
         <!-- 操作按钮 -->
         <div class="action-buttons">
-          <el-button type="primary" @click="sendPrivateMessage(selectedMember.id)">发送消息</el-button>
+          <el-button type="primary" @click="sendPrivateMessage(selectedMember.account)">发送消息</el-button>
           <el-button @click="showMemberDialog = false">关闭</el-button>
         </div>
       </div>
@@ -887,14 +887,34 @@ const showMemberInfo = (member) => {
 
 // 显示发送者消息者的信息
 const showSenderInfo = (message) => {
-  console.log('showSenderDialog', message)
-  selectedSender.value = message
-  showSenderDialog.value = true
+  // 从 groupMembers 中查找对应的成员信息
+  const member = groupMembers.value.find(m => m.id === message.senderId)
+  if (member) {
+    // 使用与 showMemberInfo 相同的数据格式
+    selectedMember.value = {
+      id: member.id,
+      name: member.name,
+      nickname: member.name,
+      avatar: member.avatar,
+      account: member.id,
+      status: member.status || '在线',
+      groupNickname: member.groupNickname,
+      gender: member.gender,
+      location: member.city,
+      joinTime: member.joinTime
+    }
+    // 使用成员信息弹窗而不是发送者弹窗
+    showMemberDialog.value = true
+  } else {
+    // 如果找不到成员信息，则使用原来的发送者信息展示
+    selectedSender.value = message
+    showSenderDialog.value = true
+  }
 }
 
 // 发送私聊消息
 const sendPrivateMessage = (id) => {
-  router.push(`/chat/private/${id}`)
+  router.push(`/chat/personal/${id}`)
   showMemberDialog.value = false
   showSenderDialog.value = false
 }
