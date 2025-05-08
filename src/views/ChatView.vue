@@ -66,7 +66,7 @@
         <div class="message-area">
           <div v-for="msg in currentMessages" :key="msg.id"
             :class="['message', { 'message-self': msg.senderId === mockUser.id }]" @click="showSenderInfo(msg)">
-            <el-avatar :src="msg.avatar" />
+            <el-avatar :src="getMemberAvatar(msg.senderId)" />
             <div class="message-content">
               <div class="message-info">
                 <div class="message-sender">
@@ -1317,6 +1317,25 @@ const updateMemberRole = async (memberId, newRole) => {
   } catch (error) {
     console.error('更新成员角色失败:', error)
     ElMessage.error('更新角色失败')
+  }
+}
+
+// 添加获取成员头像的方法
+const getMemberAvatar = (senderId) => {
+  if (isGroupChat.value) {
+    // 群聊：从群成员中获取头像
+    const member = groupMembers.value.find(m => m.id === senderId)
+    return member ? member.avatar : ''
+  } else {
+    // 私聊
+    if (senderId === userInfo.value.id) {
+      // 自己发送的消息：使用当前用户头像
+      return userInfo.value.avatar_url
+    } else {
+      // 对方发送的消息：从好友列表中获取头像
+      const friend = friends.value.find(f => f.id === senderId)
+      return friend ? friend.avatar : ''
+    }
   }
 }
 
